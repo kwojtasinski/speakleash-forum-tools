@@ -76,10 +76,10 @@ import psutil                                       # install psutil
 
 # CONFIG
 DATASET_CATEGORY = "Forum" # obviously :)
+DATASET_URL = 'https://forumaddress.pl' # forum's address with http/https
 DATASET_NAME = "dataset_name" # for example: forum_website_pl_corpus
-DATASET_DESCRIPTION = f"Collection of forum discussions from WEBSITE-NAME-HERE" # also change this according to the forum
-LICENSE = "(c) www.forumphoto.pl" # forum's address
-DATASET_URL = 'https://forumphoto.pl' # forum's address with http/https
+DATASET_DESCRIPTION = f"Collection of forum discussions from {DATASET_URL}" # also change this according to the forum name
+LICENSE = "(c) www.forumaddress.pl" # forum address
 EXPECTED_URL_PARTS = ['/topic','/temat', '/thread'] # we're targeting the full topics to optimize the performance
 PROCESSES = 4 # number of processes, from 1 up to os.cpu_count()
 TIME_SLEEP = 0.2 # waiting interval between requests
@@ -797,7 +797,8 @@ def main():
 
     try:
         file_name_temp_zst, total_docs_archive, total_docs_len = merge_archive()
-        new_name_zst = datetime.datetime.today().strftime('%Y%m%d%H%M%S') + '-' + file_name_zst
+        # new_name_zst = datetime.datetime.today().strftime('%Y%m%d%H%M%S') + '-' + file_name_zst
+        new_name_zst = file_name_zst # Archive name should not be enchanced with timestamp as it'll need additional actions
         os.rename(file_name_temp_zst, new_name_zst)
         file_name_temp_zst = new_name_zst
 
