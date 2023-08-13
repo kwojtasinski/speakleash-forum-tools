@@ -78,13 +78,13 @@ import psutil                                       # install psutil
 DATASET_CATEGORY = "Forum" # obviously :)
 DATASET_NAME = "dataset_name" # for example: forum_website_pl_corpus
 DATASET_DESCRIPTION = f"Collection of forum discussions from WEBSITE-NAME-HERE" # also change this according to the forum
-LICENSE = "(c) www.forum.cdaction.pl" # forum's address
-DATASET_URL = 'https://forum.cdaction.pl/' # forum's address with http/https
+LICENSE = "(c) www.forumphoto.pl" # forum's address
+DATASET_URL = 'https://forumphoto.pl' # forum's address with http/https
 EXPECTED_URL_PARTS = ['/topic','/temat', '/thread'] # we're targeting the full topics to optimize the performance
-PROCESSES = 2 # number of processes, from 1 up to os.cpu_count()
+PROCESSES = 4 # number of processes, from 1 up to os.cpu_count()
 TIME_SLEEP = 0.2 # waiting interval between requests
 SAVE_STATE = 100 # interval at which script creates a save to start from if crashed or stopped
-MIN_LEN_TXT = 200 # minimal character count to consider it a text data
+MIN_LEN_TXT = 20 # minimal character count to consider it a text data
 ###
 
 # Logging LEVELS: CRITICAL = 50 | ERROR = 40 | WARNING = 30 | INFO = 20 | DEBUG = 10 | NOTSET = 0
@@ -713,6 +713,18 @@ def create_manifest(file_name_manifest: str, total_docs: int, file_size: int) ->
 
     start_time = time.perf_counter()
 
+    # Placeholder values, will be updated in postprocessing
+    total_len = 0
+    total_docs = 0
+    total_sentences = 0
+    total_words = 0
+    total_verbs = 0
+    total_nouns = 0
+    total_punctuations = 0
+    total_symbols = 0
+    total_stopwords = 0
+    total_oovs = 0
+
     try:
         manifest = {"project" : "SpeakLeash", 
                         "name": DATASET_NAME, 
@@ -724,7 +736,16 @@ def create_manifest(file_name_manifest: str, total_docs: int, file_size: int) ->
                         "sources": [{"name": DATASET_NAME, 
                                     "url": DATASET_URL, 
                                     "license": LICENSE}], 
-                                    "stats": {"documents": str(total_docs)}}
+                                    "stats": {"documents": total_docs, 
+                                        "sentences": total_sentences, 
+                                        "words" : total_words, 
+                                        "nouns" : total_nouns, 
+                                        "verbs" : total_verbs, 
+                                        "characters": total_len, 
+                                        "punctuations" : total_punctuations, 
+                                        "symbols" : total_symbols, 
+                                        "stopwords": total_stopwords, 
+                                        "oovs": total_oovs}}
 
         try:
             json_manifest = json.dumps(manifest, indent = 4)
