@@ -80,7 +80,8 @@ DATASET_URL = 'https://forumaddress.pl' # forum's address with http/https
 DATASET_NAME = "dataset_name" # for example: forum_website_pl_corpus
 DATASET_DESCRIPTION = f"Collection of forum discussions from {DATASET_URL}" # also change this according to the forum name
 LICENSE = "(c) www.forumaddress.pl" # forum address
-EXPECTED_URL_PARTS = ['/topic','/temat', '/thread'] # we're targeting the full topics to optimize the performance
+
+EXPECTED_URL_PARTS = ['/topic','/temat', '/thread', '/forum'] # we're targeting the full topics to optimize the performance
 PROCESSES = 4 # number of processes, from 1 up to os.cpu_count()
 TIME_SLEEP = 0.2 # waiting interval between requests
 SAVE_STATE = 100 # interval at which script creates a save to start from if crashed or stopped
@@ -273,6 +274,7 @@ def get_item_text(url: str) -> str:
                         text += comment.text.strip() + "\n"
                     #for i in page_nav_results:
                     #    text += i.text.strip()+"\n"
+                    time.sleep(TIME_SLEEP)
                 else:
                     logging.debug(f"GET_TEXT // Topic URL is NOT in next_page_url: {next_page_url=}")
                     break
