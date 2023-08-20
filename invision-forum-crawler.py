@@ -51,6 +51,7 @@ import time, datetime
 import logging
 import sys
 from multiprocessing import set_start_method, Pool, current_process
+import argparse
 
 import requests
 from requests.adapters import HTTPAdapter           # install requests
@@ -64,8 +65,6 @@ import psutil                                       # install psutil
 
 
 
-# TODO!: Merged *.jsonl.zst - tweak what should be in final archive
-
 # TODO 1: Create generator to iterate over file (csv) with links --> to minimize memory footprint
 # TODO 1: - for now: pandas.DataFrame with urls (in memory) is duplicated and split for each worker, 
 # TODO 1: --> so we got x2 mem of this dataframe ('cos each subprocess got a chunk) + memory for workers
@@ -73,18 +72,39 @@ import psutil                                       # install psutil
 # TODO 2: Each worker could export dict with: url, flag_visited, flag_skipped - for now its tricky process
 
 
+parser = argparse.ArgumentParser(description='Crawler and scraper - using sitemaps (in XML) and scrap text from Invision forums')
+parser.add_argument("-D_C", "--DATASET_CATEGORY", help="Set category e.g. Forum", default="", type=str)
+parser.add_argument("-D_U" , "--DATASET_URL", help="Desire URL with http/https e.g. https://forumaddress.pl", default="", type=str)
+parser.add_argument("-D_N" , "--DATASET_NAME", help="Dataset name e.g. forum_<url_domain>_pl_corpus", default="", type=str)
+parser.add_argument("-D_D" , "--DATASET_DESCRIPTION", help="Description e.g. Collection of forum discussions from DATASET_URL", default="", type=str)
+parser.add_argument("-D_L" , "--DATASET_LICENSE", help="Dataset license e.g. (c) DATASET_URL", default="", type=str)
+
+parser.add_argument("-proc", "--PROCESSES", help="Number of processes - from 1 up to os.cpu_count()", default = 4, type=int)
+parser.add_argument("-sleep", "--TIME_SLEEP", help="Waiting interval between requests (in sec)", default = 0.2, type=float)
+parser.add_argument("-save", "--SAVE_STATE", help="URLs interval at which script saves data, prevents from losing data if crashed or stopped", default = 100, type=int)
+parser.add_argument("-min_len", "--MIN_LEN_TXT", help="Minimum character count to consider it a text data", default = 20, type=int)
+
+args = parser.parse_args()
+
 
 # CONFIG
-DATASET_CATEGORY = "Forum" # obviously :)
-DATASET_URL = 'https://forumaddress.pl' # forum's address with http/https
-DATASET_NAME = "dataset_name" # for example: forum_website_pl_corpus
-DATASET_DESCRIPTION = f"Collection of forum discussions from {DATASET_URL}" # also change this according to the forum name
-LICENSE = "(c) www.forumaddress.pl" # forum address
-EXPECTED_URL_PARTS = ['/topic','/temat', '/thread'] # we're targeting the full topics to optimize the performance
-PROCESSES = 4 # number of processes, from 1 up to os.cpu_count()
-TIME_SLEEP = 0.2 # waiting interval between requests
-SAVE_STATE = 100 # interval at which script creates a save to start from if crashed or stopped
-MIN_LEN_TXT = 20 # minimal character count to consider it a text data
+DATASET_CATEGORY: str = args.DATASET_CATEGORY or "Forum"
+DATASET_URL: str = args.DATASET_URL or "https://forum.szajbajk.pl"
+name_tmp = DATASET_CATEGORY.lower() + "_" + "".join(DATASET_URL.split("//")[-1]
+                                                    .replace("https:", "")
+                                                    .replace("http:", "")
+                                                    .replace("www.", "")
+                                                    .replace(".", "_")
+                                                    .replace("forum_", "")) + "_corpus"
+DATASET_NAME: str = args.DATASET_NAME or name_tmp
+DATASET_DESCRIPTION: str = args.DATASET_DESCRIPTION or f"Collection of forum discussions from {DATASET_URL.split('//')[-1]}"
+LICENSE: str = args.DATASET_LICENSE or f"(c) {DATASET_URL.split('//')[-1]}"
+
+EXPECTED_URL_PARTS = ['/topic','/temat', '/thread', '/forum'] # we're targeting the full topics to optimize the performance
+PROCESSES = args.PROCESSES # number of processes, from 1 up to os.cpu_count()
+TIME_SLEEP = args.TIME_SLEEP # waiting interval between requests
+SAVE_STATE = args.SAVE_STATE # urls interval at which script saves data, prevents from losing data if crashed or stopped
+MIN_LEN_TXT = args.MIN_LEN_TXT # minimal character count to consider it a text data
 ###
 
 # Logging LEVELS: CRITICAL = 50 | ERROR = 40 | WARNING = 30 | INFO = 20 | DEBUG = 10 | NOTSET = 0
@@ -93,6 +113,9 @@ MIN_LEN_TXT = 20 # minimal character count to consider it a text data
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
 # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{DATASET_NAME}.log', encoding='utf-8')
 
+logging.info(f"{DATASET_CATEGORY=} | {DATASET_URL=} | {DATASET_NAME=} | {DATASET_DESCRIPTION=} | {LICENSE=}")
+logging.info(f"{PROCESSES=} | {TIME_SLEEP=} | {SAVE_STATE=} | {MIN_LEN_TXT=}")
+
 
 # FUNCTIONS 
 def timewrap(func):
@@ -100,7 +123,7 @@ def timewrap(func):
         start = time.perf_counter()
         output = func(*args, **kwargs)
         end = time.perf_counter()
-        print(f"* Timing * -> Func: {func.__name__} | Time: {end-start} sec = {(end-start)/60} min")
+        logging.info(f"* Timing * -> Func: {func.__name__} | Time: {(end-start) * 1000} ms = {end-start} sec = {(end-start)/60} min")
         return output
     return innerfunc
 
@@ -273,6 +296,7 @@ def get_item_text(url: str) -> str:
                         text += comment.text.strip() + "\n"
                     #for i in page_nav_results:
                     #    text += i.text.strip()+"\n"
+                    time.sleep(TIME_SLEEP)
                 else:
                     logging.debug(f"GET_TEXT // Topic URL is NOT in next_page_url: {next_page_url=}")
                     break
