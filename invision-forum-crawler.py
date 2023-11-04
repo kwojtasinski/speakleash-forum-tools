@@ -739,7 +739,6 @@ def create_manifest(file_name_manifest: str, total_docs: int, file_size: int) ->
 
     # Placeholder values, will be updated in postprocessing
     total_len = 0
-    total_docs = 0
     total_sentences = 0
     total_words = 0
     total_verbs = 0

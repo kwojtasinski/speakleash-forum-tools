@@ -1,0 +1,41 @@
+1) CONFIG:
+	- parsowanie argumentów
+	- konfiguracja
+	- przygotowanie zmiennych do manifestu
+
+
+3) CRAWLER:
+	- parsowanie robots.txt
+	- parsowanie XML
+	- bieganie po strukturze forum
+	- zapis URLs -> wszystkich + checkpoints
+	- odczyt URLs z plików (np. if errors occured)
+
+
+2) SCRAPER:
+	- zbieranie contentu
+	- paginacja (przekazywana do klasy ogólnej na start)
+
+
+4) ARCHIVE:
+	- zarządzanie archiwum
+	- merge po scrapowaniu
+	- return zmienne do manifestu
+
+
+5) MANIFEST:
+	- przygotowanie zmiennych do manifestu
+	- przygotowanie manifestu
+	
+
+6) CORE:
+	- klasa ogólna
+	- trzyma wszystko co potrzebne
+	- odpala kolejne funkcje -> .start()
+	- odpala .merge() jeśli był scraping
+	- odpala .manifest() jeśli są dane
+	- ma funkcje .test() żeby testować zmiany (małe forum)
+
+
+
+
