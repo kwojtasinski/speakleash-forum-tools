@@ -358,7 +358,7 @@ def process_item(url: str) -> tuple[str, dict]:
                 meta = {'url' : url, 'skip': 'error'}
                 if txt:
                     txt_strip = txt.strip()
-                    meta = {'url' : url, 'length': len(txt_strip)}
+                    meta = {'url' : url, 'characters': len(txt_strip)}
             except Exception as e:
                 logging.error(f"PROCESS_ITEM // Error processing item -> {url} : {str(e)}")
                 meta = {'url' : url, 'skip': 'error'}
