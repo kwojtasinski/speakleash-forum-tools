@@ -1,0 +1,8 @@
+requests
+urllib3
+beautifulsoup4
+ultimate-sitemap-parser
+lm-dataformat
+tqdm
+pandas
+psutil
