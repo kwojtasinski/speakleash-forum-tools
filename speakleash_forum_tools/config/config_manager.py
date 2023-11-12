@@ -11,14 +11,16 @@ Dependencies:
 - logging: Provides logging worflow.
 - argparse: Provides parser for command-line arguments.
 - urllib: Provides RobotFileParser and functions to parse and join urls.
+- datetime: Provides time informations.
 """
 import logging
 import argparse
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
+from datetime import datetime
 from typing import Optional
 
-logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG)
 
 
 class ConfigManager:
@@ -28,9 +30,10 @@ class ConfigManager:
     Attributes:
         settings (dict): A dictionary of all the settings for the crawler.
         robot_parser (RobotFileParser): Parser for robots.txt (if check_robots is True)
+        headers (dict): Headers e.g. 'User-Agent' of crawler. 
     """
 
-    def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum',
+    def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
                  processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20):
         """
@@ -39,6 +42,7 @@ class ConfigManager:
         Args:
             dataset_url (str): The base URL of the dataset/forum to be crawled.
             dataset_category (str): The category of the dataset/forum.
+            forum_engine (str): The forum engine used on website.
             arg_parser (bool): Flag to determine if command-line arguments should be parsed.
             check_robots (bool): Flag to determine if robots.txt should be checked.
             force_crawl (bool): Flag to force crawling even if disallowed by robots.txt.
@@ -47,12 +51,12 @@ class ConfigManager:
             save_state (int): Interval at which to save crawling state.
             min_len_txt (int): Minimum length of text to consider as valid data.
         """
-        self.settings = self._initialize_settings(dataset_url, dataset_category, processes = processes,
+        self.settings = self._initialize_settings(dataset_url, dataset_category, forum_engine = forum_engine, processes = processes,
                                 time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, force_crawl = force_crawl)
         if arg_parser == True:
             self._parse_arguments()
 
-        # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}.log', encoding='utf-8')
+        # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
         logging.info("+++++++++++++++++++++++++++++++++++++++++++")
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
 
@@ -69,13 +73,21 @@ class ConfigManager:
                         {self.settings['DATASET_DESCRIPTION']=}\n \
                         {self.settings['DATASET_LICENSE']=}")
         logging.info(f"Settings for scraper: \n \
+                        {self.settings['FORUM_ENGINE']=}\n \
                         {self.settings['PROCESSES']=}\n \
                         {self.settings['TIME_SLEEP']=}\n \
                         {self.settings['SAVE_STATE']=}\n \
                         {self.settings['MIN_LEN_TXT']=}\n \
                         {self.settings['FORCE_CRAWL']=}")
+        
+        self.headers = {
+	        'User-Agent': 'Speakleash',
+	        "Accept-Encoding": "gzip, deflate",
+	        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	        "Connection": "keep-alive"
+	    }
 
-    def _initialize_settings(self, dataset_url: str, dataset_category: str, processes: int = 2,
+    def _initialize_settings(self, dataset_url: str, dataset_category: str, forum_engine: str = 'invision', processes: int = 2,
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, force_crawl: bool = False) -> dict:
 
         parsed_url = urlparse(dataset_url)
@@ -88,6 +100,7 @@ class ConfigManager:
             'DATASET_NAME': dataset_name,
             'DATASET_DESCRIPTION': f"Collection of forum discussions from {dataset_domain}",
             'DATASET_LICENSE': f"(c) {dataset_domain}",
+            'FORUM_ENGINE': forum_engine,
             'PROCESSES': processes,
             'TIME_SLEEP': time_sleep,
             'SAVE_STATE': save_state,
@@ -99,6 +112,7 @@ class ConfigManager:
         parser = argparse.ArgumentParser(description='Crawler and scraper for forums')
         parser.add_argument("-D_C", "--DATASET_CATEGORY", help="Set category e.g. Forum", default="Forum", type=str)
         parser.add_argument("-D_U" , "--DATASET_URL", help="Desire URL with http/https e.g. https://forumaddress.pl", default="", type=str)
+        parser.add_argument("-D_E" , "--FORUM_ENGINE", help="Engine used to build forum website", default="", type=str)
         parser.add_argument("-D_N" , "--DATASET_NAME", help="Dataset name e.g. forum_<url_domain>_pl_corpus", default="", type=str)
         parser.add_argument("-D_D" , "--DATASET_DESCRIPTION", help="Description e.g. Collection of forum discussions from DATASET_URL", default="", type=str)
         parser.add_argument("-D_L" , "--DATASET_LICENSE", help="Dataset license e.g. (c) DATASET_URL", default="", type=str)
@@ -157,7 +171,11 @@ class ConfigManager:
 
 
 # Example usage:
-# if __name__ == "__main__":
-#     config_manager = ConfigManager(arg_parser=True)
-#     # Use the settings from config_manager.settings as needed
-#     print(config_manager.settings)
+if __name__ == "__main__":
+
+    config_manager = ConfigManager()
+    # config_manager = ConfigManager(arg_parser=True)
+    # config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', force_crawl=True)
+    
+    # Use the settings from config_manager.settings as needed
+    print(config_manager.settings)
