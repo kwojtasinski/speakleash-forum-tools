@@ -15,6 +15,7 @@ Dependencies:
 """
 import logging
 import argparse
+import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
 from datetime import datetime
@@ -56,6 +57,13 @@ class ConfigManager:
         if arg_parser == True:
             self._parse_arguments()
 
+        self.headers = {
+	        'User-Agent': 'Speakleash',
+	        "Accept-Encoding": "gzip, deflate",
+	        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	        "Connection": "keep-alive"
+	    }
+
         # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
         logging.info("+++++++++++++++++++++++++++++++++++++++++++")
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
@@ -80,13 +88,6 @@ class ConfigManager:
                         {self.settings['MIN_LEN_TXT']=}\n \
                         {self.settings['FORCE_CRAWL']=}")
         
-        self.headers = {
-	        'User-Agent': 'Speakleash',
-	        "Accept-Encoding": "gzip, deflate",
-	        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-	        "Connection": "keep-alive"
-	    }
-
     def _initialize_settings(self, dataset_url: str, dataset_category: str, forum_engine: str = 'invision', processes: int = 2,
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, force_crawl: bool = False) -> dict:
 
