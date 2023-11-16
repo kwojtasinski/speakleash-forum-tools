@@ -142,7 +142,7 @@ class ForumEnginesManager:
         :param session (requests.Session): Session with http/https adapters.
         :return (dict): A dictionary mapping thread URLs to their respective thread titles.
         """
-        response = session.get(url_now, timeout=60, headers=self.headers, verify=False)
+        response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
 
         forum_threads = self._get_forum_threads(soup)
@@ -183,20 +183,20 @@ class ForumEnginesManager:
         """
         thread_topics = {}
         
-        response = session.get(url_now, timeout=60, headers=self.headers, verify=False)
+        response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
         
         thread_topics = self._get_thread_topics(soup = soup)
         logging.info(f"--> Topics found in thread: {len(thread_topics)}")
 
         # Find the link to the next page
-        while self.get_next_page_link(url_now, soup):
-            next_page_link = self.get_next_page_link(url_now, soup)
+        while self._get_next_page_link(url_now, soup):
+            next_page_link = self._get_next_page_link(url_now, soup)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
                 logging.info(f"*** Found new page with topics... URL: {url_now}")
-                response = session.get(url_now, timeout=60, headers=self.headers, verify=False)
+                response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 thread_topics.update(self._get_thread_topics(soup = soup))
@@ -236,9 +236,10 @@ class ForumEnginesManager:
         return thread_topics
 
 
-    def get_next_page_link(self, url_now: str, soup: BeautifulSoup):
+    def _get_next_page_link(self, url_now: str, soup: BeautifulSoup):
         """
         Finds the link to the next page using pagination.
+        Default HTML tags to search = ['li', 'a', 'div']
 
         :param url_now (str): URL of website which crawler is now checking.
         :param soup (BeautifulSoup): BeautifulSoup object with currently searched URL.
@@ -250,17 +251,27 @@ class ForumEnginesManager:
 
             if not next_button:
                 try:
-                    pag_type, pag_class = pagination_class.split("::")
-                    next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
-                    if (next_button):
-                        logging.debug("Button to next page - FOUND -> wierd spot")
-                    else:
-                        logging.debug("Button to next page - NOT FOUND")
-                        continue
+                    try:
+                        pag_type, pag_class = pagination_class.split("::")
+                        next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
+                        if (next_button):
+                            logging.debug("Button to next page - FOUND -> wierd spot")
+                        else:
+                            logging.debug("Button to next page - NOT FOUND")
+                            continue
+                    except:
+                        html_tag, pag_type_class = pagination_class.split(" >> ")
+                        pag_type, pag_class = pag_type_class.split("::")
+                        next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
+                        if (next_button):
+                            logging.debug("Button to next page - FOUND -> wierd spot")
+                        else:
+                            logging.debug("Button to next page - NOT FOUND")
+                            continue
                 except Exception as e:
                     if e:
                         logging.debug(f"ERROR: Error while searching for pagination -> {e}")
-                    logging.debug("Button to next page - NOT FOUND")
+                    logging.debug("NOT FOUND - Button to next page - NOT FOUND")
                     continue
             
             if next_button:
@@ -340,8 +351,8 @@ class InvisionCrawler():
     Specific functionalities for Invision forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["div >> ipsDataItem_main"]    # Used for threads and subforums
-        self.topics_class: List[str] = ["div >> ipsDataItem_main"]          # Used for topics
+        self.threads_class: List[str] = ["div >> ipsDataItem_main"]     # Used for threads and subforums
+        self.topics_class: List[str] = ["div >> ipsDataItem_main"]      # Used for topics
         self.threads_whitelist: List[str] = ["forum"]
         self.threads_blacklist: List[str] = ["topic"]
         self.topics_whitelist: List[str] = ["topic"]
@@ -354,7 +365,7 @@ class PhpBBCrawler():
     Specific functionalities for phpBB forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["a >> forumtitle", "a >> forumlink"]                       # Used for threads
+        self.threads_class: List[str] = ["a >> forumtitle", "a >> forumlink"]     # Used for threads
         self.topics_class: List[str] = ["a >> topictitle"]                        # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = []

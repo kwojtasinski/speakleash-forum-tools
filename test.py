@@ -23,7 +23,8 @@ if __name__ == "__main__":
     #+ config_manager = ConfigManager(dataset_url="http://forum-kulturystyka.pl", forum_engine='ipboard')    # Topics to find = 110k ~ 119k (calc ~ dashboard)
 
     ### Engine: xenforo
-    # config_manager = ConfigManager(dataset_url="https://forum.modelarstwo.info", forum_engine='xenforo')  # Topics to find = 16 500 (calc from website) == almost all
+    # Crawl-delay = 15sec (in robots.txt)
+    #+ config_manager = ConfigManager(dataset_url="https://forum.modelarstwo.info", forum_engine='xenforo')  # Topics to find = 16 500 (calc from website) == almost all
 
 
     # Use the settings from config_manager.settings as needed

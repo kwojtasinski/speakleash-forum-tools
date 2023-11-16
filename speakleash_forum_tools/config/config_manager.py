@@ -50,6 +50,15 @@ class ConfigManager:
             time_sleep (float): Time in seconds to sleep between requests.
             save_state (int): Interval at which to save crawling state.
             min_len_txt (int): Minimum length of text to consider as valid data.
+            threads_class (List[str]): CSS selectors used for identifying thread links in the forum. Example for Invision forum: ["div >> ipsDataItem_main"].
+            topics_class (List[str]): CSS selectors used for identifying topic links within a thread. Example for Invision forum: ["div >> ipsDataItem_main"].
+            threads_whitelist (List[str]): List of substrings; only threads whose URLs contain any of these substrings will be processed. Example for Invision forum: ["forum"].
+            threads_blacklist (List[str]): List of substrings; threads whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["topic"].
+            topics_whitelist (List[str]): List of substrings; only topics whose URLs contain any of these substrings will be processed. Example for Invision forum: ["topic"].
+            topics_blacklist (List[str]): List of substrings; topics whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["page", "#comments"].
+            pagination (List[str]): CSS selectors used for identifying pagination elements within threads or topics. Example for Invision forum: ["ipsPagination_next"].
+            content_class (List[str]): CSS selectors used for identifying the main content within a topic. Example for Invision forum: ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"].
+
         """
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
 
@@ -183,7 +192,7 @@ class ConfigManager:
         except:
             rp.set_url(urljoin(robots_url, "robots.txt"))
             rp.read()
-            logging.info("Read 'robots.txt' lines -> CHECK robots.txt -> Sleep for 1 min")
+            logging.info("Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
             time.sleep(60)
 
 
