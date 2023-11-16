@@ -11,17 +11,14 @@ Dependencies:
 - logging: Provides logging worflow.
 - argparse: Provides parser for command-line arguments.
 - urllib: Provides RobotFileParser and functions to parse and join urls.
-- datetime: Provides time informations.
 """
+import time
 import logging
 import argparse
 import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
-from datetime import datetime
 from typing import Optional
-
-logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s', level=logging.DEBUG)
 
 
 class ConfigManager:
@@ -35,8 +32,8 @@ class ConfigManager:
     """
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
-                 arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
-                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20):
+                 dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
+                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO):
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
@@ -52,8 +49,11 @@ class ConfigManager:
             save_state (int): Interval at which to save crawling state.
             min_len_txt (int): Minimum length of text to consider as valid data.
         """
-        self.settings = self._initialize_settings(dataset_url, dataset_category, forum_engine = forum_engine, processes = processes,
-                                time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, force_crawl = force_crawl)
+        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
+
+        self.settings = self._initialize_settings(dataset_url, dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
+                            processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl)
+        
         if arg_parser == True:
             self._parse_arguments()
 
@@ -86,14 +86,16 @@ class ConfigManager:
                         {self.settings['TIME_SLEEP']=}\n \
                         {self.settings['SAVE_STATE']=}\n \
                         {self.settings['MIN_LEN_TXT']=}\n \
+                        {self.settings['SITEMAPS']=}\n \
                         {self.settings['FORCE_CRAWL']=}")
         
-    def _initialize_settings(self, dataset_url: str, dataset_category: str, forum_engine: str = 'invision', processes: int = 2,
-                time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, force_crawl: bool = False) -> dict:
+    def _initialize_settings(self, dataset_url: str, dataset_category: str, dataset_name: str = "", forum_engine: str = 'invision', processes: int = 2,
+                time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False) -> dict:
 
         parsed_url = urlparse(dataset_url)
         dataset_domain = parsed_url.netloc.replace('www.', '')
-        dataset_name = f"{dataset_category.lower()}_{dataset_domain.replace('.', '_')}_corpus"
+        if not dataset_name:
+            dataset_name = f"{dataset_category.lower()}_{dataset_domain.replace('.', '_')}_corpus"
 
         return {
             'DATASET_CATEGORY': dataset_category,
@@ -106,6 +108,7 @@ class ConfigManager:
             'TIME_SLEEP': time_sleep,
             'SAVE_STATE': save_state,
             'MIN_LEN_TXT': min_len_txt,
+            'SITEMAPS': sitemaps,
             'FORCE_CRAWL': force_crawl
         }
 
@@ -121,6 +124,7 @@ class ConfigManager:
         parser.add_argument("-sleep", "--TIME_SLEEP", help="Waiting interval between requests (in sec)", type=float)
         parser.add_argument("-save", "--SAVE_STATE", help="URLs interval at which script saves data, prevents from losing data if crashed or stopped", type=int)
         parser.add_argument("-min_len", "--MIN_LEN_TXT", help="Minimum character count to consider it a text data", type=int)
+        parser.add_argument("-sitemaps" , "--SITEMAPS", help="Desire URL with sitemaps", default="", type=str)
         parser.add_argument("-force", "--FORCE_CRAWL", help="Force to crawl website - overpass robots.txt", action='store_true')
         args = parser.parse_args()
 
@@ -148,8 +152,20 @@ class ConfigManager:
             logging.warning(f"* robots.txt expected url: {robots_url}/robots.txt")
         
         rp = urllib.robotparser.RobotFileParser()
-        rp.set_url(urljoin(robots_url, "robots.txt"))
-        rp.read()
+        try:
+            logging.info("Parsing 'robots.txt' lines")
+            with urllib.request.urlopen(urllib.request.Request(urljoin(robots_url, "robots.txt"), headers={'User-Agent': 'Python'})) as response:
+                try:
+                    rp.parse(response.read().decode("utf-8").splitlines())
+                except:
+                    logging.error("Error while parsing lines -> using 'latin-1' ")
+                    rp.parse(response.read().decode("latin-1").splitlines())
+        except:
+            rp.set_url(urljoin(robots_url, "robots.txt"))
+            rp.read()
+            logging.info("Read 'robots.txt' lines -> CHECK robots.txt -> Sleep for 1 min")
+            time.sleep(60)
+
 
         if not rp.can_fetch("*", self.settings['DATASET_URL']) and force_crawl==False:
             logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
@@ -165,18 +181,13 @@ class ConfigManager:
             self.settings['TIME_SLEEP'] = round(rrate.seconds / rrate.requests, 2)
             logging.info(f"* also setting scraper processes to: {2}")
             self.settings['PROCESSES'] = 2
-        logging.info(f"* robots.txt -> crawl delay: {rp.crawl_delay('*')}")
-        logging.info(f"* robots.txt -> sitemaps links: {rp.site_maps()}")
+        
+        if rp.crawl_delay('*'):
+            logging.info(f"* robots.txt -> crawl delay: {rp.crawl_delay('*')}")
+            self.settings['TIME_SLEEP'] = rp.crawl_delay('*')
+        
+        if rp.site_maps():
+            logging.info(f"* robots.txt -> sitemaps links: {rp.site_maps()}")
+            self.settings['SITEMAPS'] = rp.site_maps()
 
         return rp
-
-
-# Example usage:
-if __name__ == "__main__":
-
-    config_manager = ConfigManager()
-    # config_manager = ConfigManager(arg_parser=True)
-    # config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', force_crawl=True)
-    
-    # Use the settings from config_manager.settings as needed
-    print(config_manager.settings)
