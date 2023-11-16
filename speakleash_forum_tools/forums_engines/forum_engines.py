@@ -160,8 +160,9 @@ class ForumEnginesManager:
         forum_threads = {}
 
         for thread_class in self.threads_class:
-            html_tag, th_class = thread_class.split(" >> ")
-            threads = soup.find_all(html_tag, {'class': th_class})
+            html_tag, th_type_class = thread_class.split(" >> ")
+            th_type, th_class = th_type_class.split(" :: ")
+            threads = soup.find_all(html_tag, {th_type: th_class})
 
             threads_found = self._crawler_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist, blacklist = self.threads_blacklist, robotparser = self.robot_parser, forum_url = self.forum_url)
             forum_threads.update(threads_found)
@@ -220,8 +221,9 @@ class ForumEnginesManager:
 
         for topic_class in self.topics_class:
             # topics = soup.select(topic_class)
-            html_tag, tp_class = topic_class.split(" >> ")
-            topics = soup.find_all(html_tag, {'class': tp_class})
+            html_tag, tp_type_class = topic_class.split(" >> ")
+            tp_type, tp_class = tp_type_class.split(" :: ")
+            topics = soup.find_all(html_tag, {tp_type: tp_class})
             logging.debug(f"Found URLs = {len(topics)}")
 
             if len(topics) == 0:
@@ -254,7 +256,7 @@ class ForumEnginesManager:
             if not next_button:
                 try:
                     try:
-                        pag_type, pag_class = pagination_class.split("::")
+                        pag_type, pag_class = pagination_class.split(" :: ")
                         next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
                         if (next_button):
                             logging.debug("Button to next page - FOUND -> wierd spot")
@@ -263,7 +265,7 @@ class ForumEnginesManager:
                             continue
                     except:
                         html_tag, pag_type_class = pagination_class.split(" >> ")
-                        pag_type, pag_class = pag_type_class.split("::")
+                        pag_type, pag_class = pag_type_class.split(" :: ")
                         next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
                         if (next_button):
                             logging.debug("Button to next page - FOUND -> wierd spot")
@@ -347,14 +349,13 @@ class ForumEnginesManager:
         return to_return_dict
 
 
-
-class InvisionCrawler():
+class InvisionCrawler:
     """
     Specific functionalities for Invision forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["div >> ipsDataItem_main"]     # Used for threads and subforums
-        self.topics_class: List[str] = ["div >> ipsDataItem_main"]      # Used for topics
+        self.threads_class: List[str] = ["div >> class :: ipsDataItem_main"]     # Used for threads and subforums
+        self.topics_class: List[str] = ["div >> class :: ipsDataItem_main"]      # Used for topics
         self.threads_whitelist: List[str] = ["forum"]
         self.threads_blacklist: List[str] = ["topic"]
         self.topics_whitelist: List[str] = ["topic"]
@@ -362,27 +363,27 @@ class InvisionCrawler():
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
         self.content_class: List[str] = ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"]  # Used for content_class
 
-class PhpBBCrawler():
+class PhpBBCrawler:
     """
     Specific functionalities for phpBB forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["a >> forumtitle", "a >> forumlink"]     # Used for threads
-        self.topics_class: List[str] = ["a >> topictitle"]                        # Used for topics
+        self.threads_class: List[str] = ["a >> class :: forumtitle", "a >> class :: forumlink"]     # Used for threads
+        self.topics_class: List[str] = ["a >> class :: topictitle"]                        # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
-        self.pagination: List[str] = ["arrow next", "right-box right", "title::Dalej", "pag-img"]  # Different phpBB forums
+        self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
         self.content_class: List[str] = ["content_class"]                      # Used for content_class / messages
 
-class IPBoardCrawler():
+class IPBoardCrawler:
     """
     Specific functionalities for IPBoard forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["td >> col_c_forum"]                     # Used for threads
-        self.topics_class: List[str] = ["a >> topic_title"]                       # Used for topics
+        self.threads_class: List[str] = ["td >> class :: col_c_forum"]                     # Used for threads
+        self.topics_class: List[str] = ["a >> class :: topic_title"]                       # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
@@ -390,13 +391,13 @@ class IPBoardCrawler():
         self.pagination: List[str] = ["next"]                           # Used for subforums and topics pagination
         self.content_class: List[str] = ["post entry-content_class"]           # Used for content_class / messages
 
-class XenForoCrawler():
+class XenForoCrawler:
     """
     Specific functionalities for XenForo forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["h3 >> node-title"]                        # Used for threads
-        self.topics_class: List[str] = ["div >> structItem-title"]                  # Used for topics
+        self.threads_class: List[str] = ["h3 >> class :: node-title"]                        # Used for threads
+        self.topics_class: List[str] = ["div >> class :: structItem-title"]                  # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = ["prefix_id"]
         self.topics_whitelist: List[str] = ["threads"]
