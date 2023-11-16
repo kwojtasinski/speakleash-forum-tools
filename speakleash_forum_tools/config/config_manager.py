@@ -18,7 +18,7 @@ import argparse
 import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
-from typing import Optional
+from typing import Optional, List
 
 
 class ConfigManager:
@@ -33,7 +33,9 @@ class ConfigManager:
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
-                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO):
+                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
+                 threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
+                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], content_class: List[str] = []):
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
@@ -52,7 +54,9 @@ class ConfigManager:
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
 
         self.settings = self._initialize_settings(dataset_url, dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
-                            processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl)
+                            processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl,
+                            threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, content_class = content_class)
         
         if arg_parser == True:
             self._parse_arguments()
@@ -90,7 +94,9 @@ class ConfigManager:
                         {self.settings['FORCE_CRAWL']=}")
         
     def _initialize_settings(self, dataset_url: str, dataset_category: str, dataset_name: str = "", forum_engine: str = 'invision', processes: int = 2,
-                time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False) -> dict:
+                time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False,
+                threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], content_class: List[str] = []) -> dict:
 
         parsed_url = urlparse(dataset_url)
         dataset_domain = parsed_url.netloc.replace('www.', '')
@@ -109,10 +115,21 @@ class ConfigManager:
             'SAVE_STATE': save_state,
             'MIN_LEN_TXT': min_len_txt,
             'SITEMAPS': sitemaps,
-            'FORCE_CRAWL': force_crawl
+            'FORCE_CRAWL': force_crawl,
+            'THREADS_CLASS': threads_class,
+            'THREADS_WHITELIST': threads_whitelist,
+            'THREADS_BLACKLIST': threads_blacklist,
+            'TOPICS_CLASS': topic_class,
+            'TOPICS_WHITELIST': topic_whitelist,
+            'TOPICS_BLACKLIST': topic_blacklist,
+            'PAGINATION': pagination,
+            'CONTENT_CLASS': content_class
         }
 
     def _parse_arguments(self) -> None:
+        """
+        Parsing arguments e.g. DATASET_URL, FORUM_ENGINE etc.
+        """
         parser = argparse.ArgumentParser(description='Crawler and scraper for forums')
         parser.add_argument("-D_C", "--DATASET_CATEGORY", help="Set category e.g. Forum", default="Forum", type=str)
         parser.add_argument("-D_U" , "--DATASET_URL", help="Desire URL with http/https e.g. https://forumaddress.pl", default="", type=str)
@@ -145,6 +162,9 @@ class ConfigManager:
                 self.settings[arg] = getattr(args, arg)
 
     def _check_robots_txt(self, force_crawl: bool = False) -> Optional[urllib.robotparser.RobotFileParser]:
+        """
+        Parsing 'robots.txt' and set some settings if 'robots.txt' overdrive it.
+        """
         robots_url = self.settings['DATASET_URL']
         parsed_url = urlparse(self.settings['DATASET_URL'])
         if parsed_url.path:

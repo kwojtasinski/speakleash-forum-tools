@@ -1,2 +1,2 @@
 from .config import ConfigManager
-from .forums import ForumEnginesManager
+from .forums_engines import ForumEnginesManager
