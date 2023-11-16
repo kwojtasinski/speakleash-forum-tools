@@ -30,6 +30,8 @@ from speakleash_forum_tools.utils import create_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supress warning about 'InsecureRequest' (session.get(..., verify = False))
 
+#TODO: Re-write classes for specific forum engines to -> dataslasses
+
 class ForumEnginesManager:
     """
     Manages the crawling process for various forum engine types. 
