@@ -18,7 +18,7 @@ import argparse
 import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
-from typing import Optional, List
+from typing import Optional, Tuple, List
 
 
 class ConfigManager:
@@ -62,6 +62,39 @@ class ConfigManager:
         """
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
 
+        try:
+            not_instance_flag = False
+
+            if not isinstance(threads_class, list):
+                logging.warning("Please check param: threads_class")
+                not_instance_flag = True
+            if not isinstance(threads_whitelist, list):
+                logging.warning("Please check param: threads_whitelist")
+                not_instance_flag = True
+            if not isinstance(threads_blacklist, list):
+                logging.warning("Please check param: threads_blacklist")
+                not_instance_flag = True
+            if not isinstance(topic_class, list):
+                logging.warning("Please check param: topic_class")
+                not_instance_flag = True
+            if not isinstance(topic_whitelist, list):
+                logging.warning("Please check param: topic_whitelist")
+                not_instance_flag = True
+            if not isinstance(topic_blacklist, list):
+                logging.warning("Please check param: topic_blacklist")
+                not_instance_flag = True
+            if not isinstance(pagination, list):
+                logging.warning("Please check param: pagination")
+                not_instance_flag = True
+            if not isinstance(content_class, list):
+                logging.warning("Please check param: content_class")
+                not_instance_flag = True
+            if not_instance_flag == True:
+                logging.warning("Exiting... Check parameters...")
+                exit()
+        except Exception as e:
+            logging.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
+
         self.settings = self._initialize_settings(dataset_url, dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
                             processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl,
                             threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
@@ -83,9 +116,10 @@ class ConfigManager:
 
         if check_robots == True:
             logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
-            self.robot_parser = self._check_robots_txt(force_crawl = self.settings['FORCE_CRAWL'])
+            self.robot_parser, self.force_crawl = self._check_robots_txt(force_crawl = self.settings['FORCE_CRAWL'])
         else:
             self.robot_parser = None
+            self.force_crawl = True
 
         logging.info(f"Settings for manifest:  \n \
                         {self.settings['DATASET_CATEGORY']=}\n \
@@ -106,7 +140,9 @@ class ConfigManager:
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False,
                 threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], content_class: List[str] = []) -> dict:
-
+        """
+        Initialize dict with info for manifest and settings for crawler / scraper.
+        """
         parsed_url = urlparse(dataset_url)
         dataset_domain = parsed_url.netloc.replace('www.', '')
         if not dataset_name:
@@ -137,7 +173,7 @@ class ConfigManager:
 
     def _parse_arguments(self) -> None:
         """
-        Parsing arguments e.g. DATASET_URL, FORUM_ENGINE etc.
+        Parsing arguments for the starter scipt like 'main.py', e.g. DATASET_URL, FORUM_ENGINE etc.
         """
         parser = argparse.ArgumentParser(description='Crawler and scraper for forums')
         parser.add_argument("-D_C", "--DATASET_CATEGORY", help="Set category e.g. Forum", default="Forum", type=str)
@@ -170,9 +206,13 @@ class ConfigManager:
             if getattr(args, arg) is not None:
                 self.settings[arg] = getattr(args, arg)
 
-    def _check_robots_txt(self, force_crawl: bool = False) -> Optional[urllib.robotparser.RobotFileParser]:
+    def _check_robots_txt(self, force_crawl: bool = False) -> Optional[Tuple[urllib.robotparser.RobotFileParser, bool]]:
         """
         Parsing 'robots.txt' and set some settings if 'robots.txt' overdrive it.
+
+        :param force_crawl (bool): If False (default) we respect website robots.txt (but robots.txt can be wrongly parsed)
+
+        :return: Returns Tuple with robotparser and force_crawl parameter.
         """
         robots_url = self.settings['DATASET_URL']
         parsed_url = urlparse(self.settings['DATASET_URL'])
@@ -196,7 +236,7 @@ class ConfigManager:
             time.sleep(60)
 
 
-        if not rp.can_fetch("*", self.settings['DATASET_URL']) and force_crawl==False:
+        if not rp.can_fetch("*", self.settings['DATASET_URL']) and force_crawl == False:
             logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
             exit()
         else:
@@ -208,15 +248,17 @@ class ConfigManager:
             logging.info(f"* robots.txt -> seconds: {rrate.seconds}")
             logging.info(f"* setting scraper time_sleep to: {(rrate.seconds / rrate.requests):.2f}")
             self.settings['TIME_SLEEP'] = round(rrate.seconds / rrate.requests, 2)
-            logging.info(f"* also setting scraper processes to: {2}")
             self.settings['PROCESSES'] = 2
+            logging.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
         
         if rp.crawl_delay('*'):
             logging.info(f"* robots.txt -> crawl delay: {rp.crawl_delay('*')}")
             self.settings['TIME_SLEEP'] = rp.crawl_delay('*')
+            self.settings['PROCESSES'] = 2
+            logging.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
         
         if rp.site_maps():
             logging.info(f"* robots.txt -> sitemaps links: {rp.site_maps()}")
             self.settings['SITEMAPS'] = rp.site_maps()
 
-        return rp
+        return (rp, force_crawl)

@@ -22,7 +22,7 @@ import requests
 import dataclasses
 import urllib3
 from urllib.parse import urljoin
-from typing import List
+from typing import Optional, Union, List
 
 from bs4 import BeautifulSoup
 from speakleash_forum_tools.config import ConfigManager
@@ -30,15 +30,33 @@ from speakleash_forum_tools.utils import create_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supress warning about 'InsecureRequest' (session.get(..., verify = False))
 
-#TODO: Re-write classes for specific forum engines to -> dataslasses
+#TODO: Re-write classes for specific forum engines to -> dataclasses
 
 class ForumEnginesManager:
     """
     Manages the crawling process for various forum engine types. 
     It provides methods to extract threads and topics from forum pages and handle pagination.
     The class orchestrates the use of specific crawler classes tailored to each identified forum engine type, 
-    ensuring that the crawling process is optimized for the nuances of each forum software.
+    ensuring that the crawling process is optimized for the nuances of each forum software.\n
+    Important:
+    - threads_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+        e.g. ["a >> class :: forumtitle"] (for phpBB engine)
+    - topics_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+        e.g. ["a >> class :: topictitle"] (for phpBB engine)
+    - threads_whitelist (List[str]): to validate URL with specific words, 
+        e.g. ["forum"] (for Invision engine)
+    - threads_blacklist (List[str]): but sometimes whitelist is not enough, 
+        e.g. ["topic"] (no, it is not a typo) (for Invision engine)
+    - topics_whitelist (List[str]): to validate URL with specific words, 
+        e.g. ["topic"] (for Invision engine)
+    - topics_blacklist (List[str]): but sometimes whitelist is not enough, 
+        e.g. ["page", "#comments"] (for Invision engine)
+    - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+        or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
+    - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+        e.g. ["content_class"] (for phpBB engine)
 
+    
     :param config_manager (ConfigManager): Configuration class, containing settings with keys like 'FORUM_ENGINE', 'DATASET_URL', etc.
 
     .. note:: The `urllib.robotparser` is used to ensure compliance with the forum's scraping policies as declared in its 'robots.txt'.
@@ -51,6 +69,7 @@ class ForumEnginesManager:
         logging.info(f"Forum Engines Manager -> Forum URL = {self.forum_url} | Engine Type = {self.engine_type} | Sleep Time = {self.time_sleep}")
 
         self.robot_parser = config_manager.robot_parser
+        self.force_crawl = config_manager.force_crawl
 
         try:
             if self.engine_type == 'invision':
@@ -75,22 +94,26 @@ class ForumEnginesManager:
         self.pagination = engine_type.pagination
         self.content_class = engine_type.content_class
 
-        if config_manager.settings['THREADS_CLASS']:
-            self.threads_class.extend(config_manager.settings['THREADS_CLASS'])
-        if config_manager.settings['THREADS_WHITELIST']:
-            self.threads_whitelist.extend(config_manager.settings['THREADS_WHITELIST'])
-        if config_manager.settings['THREADS_BLACKLIST']:
-            self.threads_blacklist.extend(config_manager.settings['THREADS_BLACKLIST'])
-        if config_manager.settings['TOPICS_CLASS']:
-            self.topics_class.extend(config_manager.settings['TOPICS_CLASS'])
-        if config_manager.settings['TOPICS_WHITELIST']:
-            self.topics_whitelist.extend(config_manager.settings['TOPICS_WHITELIST'])
-        if config_manager.settings['TOPICS_BLACKLIST']:
-            self.topics_blacklist.extend(config_manager.settings['TOPICS_BLACKLIST'])
-        if config_manager.settings['PAGINATION']:
-            self.pagination.extend(config_manager.settings['PAGINATION'])
-        if config_manager.settings['CONTENT_CLASS']:
-            self.content_class.extend(config_manager.settings['CONTENT_CLASS'])
+        try:
+            if config_manager.settings['THREADS_CLASS'] and isinstance(config_manager.settings['THREADS_CLASS'], list):
+                self.threads_class.extend(config_manager.settings['THREADS_CLASS'])
+            if config_manager.settings['THREADS_WHITELIST'] and isinstance(config_manager.settings['THREADS_WHITELIST'], list):
+                self.threads_whitelist.extend(config_manager.settings['THREADS_WHITELIST'])
+            if config_manager.settings['THREADS_BLACKLIST'] and isinstance(config_manager.settings['THREADS_BLACKLIST'], list):
+                self.threads_blacklist.extend(config_manager.settings['THREADS_BLACKLIST'])
+            if config_manager.settings['TOPICS_CLASS'] and isinstance(config_manager.settings['TOPICS_CLASS'], list):
+                self.topics_class.extend(config_manager.settings['TOPICS_CLASS'])
+            if config_manager.settings['TOPICS_WHITELIST'] and isinstance(config_manager.settings['TOPICS_WHITELIST'], list):
+                self.topics_whitelist.extend(config_manager.settings['TOPICS_WHITELIST'])
+            if config_manager.settings['TOPICS_BLACKLIST'] and isinstance(config_manager.settings['TOPICS_BLACKLIST'], list):
+                self.topics_blacklist.extend(config_manager.settings['TOPICS_BLACKLIST'])
+            if config_manager.settings['PAGINATION'] and isinstance(config_manager.settings['PAGINATION'], list):
+                self.pagination.extend(config_manager.settings['PAGINATION'])
+            if config_manager.settings['CONTENT_CLASS'] and isinstance(config_manager.settings['CONTENT_CLASS'], list):
+                self.content_class.extend(config_manager.settings['CONTENT_CLASS'])
+            logging.debug("Checked all additional lists of threads/topics/whitelist/blacklist to search...")
+        except Exception as e:
+            logging.error(f"ForumEnginesManager: Error while extending lists of threads/topics/whitelist/blacklist to search! Error: {e}")
 
         self.forum_threads = []
         self.threads_topics = {}
@@ -98,14 +121,14 @@ class ForumEnginesManager:
 
         self.headers = config_manager.headers
 
-    def crawl_forum(self):
+    def crawl_forum(self) -> bool:
         """
         Initiates the crawling process over the configured forum URL. It leverages the specified forum engine crawler
         to navigate through threads and topics, adhering to the rules specified in `robots.txt`.
 
-        :return (bool): A boolean indicating the success or failure of the crawling process.
+        :return: A boolean indicating the success or failure of the crawling process.
         """
-        logging.info(f"Starting crawl on {self.forum_url}")
+        logging.info(f"Starting crawl on: {self.forum_url}")
 
         try:
             # Fetch the main page of the forum and extract thread links
@@ -136,13 +159,14 @@ class ForumEnginesManager:
             logging.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
             return False
 
-    def get_forum_threads(self, url_now: str, session: requests.Session):
+    def get_forum_threads(self, url_now: str, session: requests.Session) -> dict:
         """
         Retrieves all the threads listed on a given forum page by utilizing the CSS selectors specified for the forum engine.
 
         :param url_now (str): The URL of the forum page from which to extract the threads.
         :param session (requests.Session): Session with http/https adapters.
-        :return (dict): A dictionary mapping thread URLs to their respective thread titles.
+
+        :return: A dictionary mapping thread URLs to their respective thread titles.
         """
         response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -150,12 +174,13 @@ class ForumEnginesManager:
         forum_threads = self._get_forum_threads(soup)
         return forum_threads
 
-    def _get_forum_threads(self, soup: BeautifulSoup):
+    def _get_forum_threads(self, soup: BeautifulSoup) -> dict:
         """
         Extracts valid threads from the forum page.
 
         :param soup (BeautifulSoup): BeautifulSoup object with currently searched URL.
-        :return (dict): Dict with threads (forums) found on website.
+
+        :return: Dict with threads (forums) found on website.
         """
         forum_threads = {}
 
@@ -164,7 +189,9 @@ class ForumEnginesManager:
             th_type, th_class = th_type_class.split(" :: ")
             threads = soup.find_all(html_tag, {th_type: th_class})
 
-            threads_found = self._crawler_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist, blacklist = self.threads_blacklist, robotparser = self.robot_parser, forum_url = self.forum_url)
+            threads_found = self._crawler_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist,
+                                                  blacklist = self.threads_blacklist, robotparser = self.robot_parser, 
+                                                  forum_url = self.forum_url, force_crawl = self.force_crawl)
             forum_threads.update(threads_found)
 
             time.sleep(self.time_sleep)
@@ -176,13 +203,14 @@ class ForumEnginesManager:
         return forum_threads
 
 
-    def get_thread_topics(self, url_now: str, session: requests.Session):
+    def get_thread_topics(self, url_now: str, session: requests.Session) -> dict:
         """
         Retrieves all the topics listed on a given thread (forum) page by utilizing the CSS selectors specified for the forum engine.
 
         :param url_now (str): The URL of the thread (forum) page from which to extract the topics.
         :param session (requests.Session): Session with http/https adapters.
-        :return (dict): A dictionary mapping topic URLs to their respective topic titles.
+
+        :return: A dictionary mapping topic URLs to their respective topic titles.
         """
         thread_topics = {}
         
@@ -210,12 +238,13 @@ class ForumEnginesManager:
         return thread_topics
 
 
-    def _get_thread_topics(self, soup: BeautifulSoup):
+    def _get_thread_topics(self, soup: BeautifulSoup) -> dict:
         """
         Extracts valid topics from the forum page.
 
         :param soup (BeautifulSoup): BeautifulSoup object with currently searched URL.
-        :return (dict): Dict with topics found in thread (forum)
+
+        :return: Dict with topics found in thread (forum)
         """
         thread_topics = {}
 
@@ -232,7 +261,9 @@ class ForumEnginesManager:
                 logging.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
                 continue
             
-            topics_found = self._crawler_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist, blacklist = self.topics_blacklist, robotparser = self.robot_parser, forum_url = self.forum_url)
+            topics_found = self._crawler_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist,
+                                                 blacklist = self.topics_blacklist, robotparser = self.robot_parser, 
+                                                 forum_url = self.forum_url, force_crawl = self.force_crawl)
             thread_topics.update(topics_found)
         
         time.sleep(self.time_sleep)
@@ -240,13 +271,15 @@ class ForumEnginesManager:
         return thread_topics
 
 
-    def _get_next_page_link(self, url_now: str, soup: BeautifulSoup):
+    def _get_next_page_link(self, url_now: str, soup: BeautifulSoup) -> Union[str, bool]:
         """
         Finds the link to the next page using pagination.
         Default HTML tags to search = ['li', 'a', 'div']
 
         :param url_now (str): URL of website which crawler is now checking.
         :param soup (BeautifulSoup): BeautifulSoup object with currently searched URL.
+
+        :return: Returns string with link to next page or False if did not find any.
         """
         for pagination_class in self.pagination:
             next_button = []
@@ -294,7 +327,7 @@ class ForumEnginesManager:
         return False
     
     @staticmethod
-    def _crawler_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str], robotparser, forum_url: str) -> dict:
+    def _crawler_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str], robotparser, forum_url: str, force_crawl: bool = False) -> dict:
         """
         Filtering found URLs and check them with robots.txt parser.
 
@@ -304,6 +337,8 @@ class ForumEnginesManager:
         :param blacklist (list[str]): Strings for blocking some URLs.
         :param robotparser (urllib.robotparser): Parser for 'robots.txt' - check if robots.txt doesn't block topics / threads URLs.
         :param forum_url (str): Forum main website URL - for checking if crawler will take only forum URLs.
+
+        :return: Returns dict with valid URLs for Threads / Topics (checked with whitelist/blacklist/robots.txt)
         """
         to_return_dict = {}
 
@@ -323,7 +358,7 @@ class ForumEnginesManager:
                                 if any(y in a_tag['href'] for y in blacklist):
                                     logging.debug(f"{to_find} OUT <- {a_tag['href']}")
                                     continue
-                            if robotparser.can_fetch("*", a_tag['href']):
+                            if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
                                 logging.debug(f"{to_find} GOOD -> {a_tag['href']}")
                                 to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
                             else:
@@ -338,7 +373,7 @@ class ForumEnginesManager:
                             continue
                     
                     if not whitelist or not blacklist:
-                        if robotparser.can_fetch("*", a_tag['href']):
+                        if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
                             logging.debug(f"{to_find} GOOD (+) -> {a_tag['href']}")
                             to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
                         else:
