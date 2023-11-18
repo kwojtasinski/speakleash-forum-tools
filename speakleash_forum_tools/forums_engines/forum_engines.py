@@ -30,38 +30,42 @@ from speakleash_forum_tools.utils import create_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supress warning about 'InsecureRequest' (session.get(..., verify = False))
 
-#TODO: Re-write classes for specific forum engines to -> dataclasses
+#TODO: Re-write classes for specific forum engines to -> dataclasses -> ????
 
 class ForumEnginesManager:
     """
     Manages the crawling process for various forum engine types. 
     It provides methods to extract threads and topics from forum pages and handle pagination.
     The class orchestrates the use of specific crawler classes tailored to each identified forum engine type, 
-    ensuring that the crawling process is optimized for the nuances of each forum software.\n
-    Important:
-    - threads_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
-        e.g. ["a >> class :: forumtitle"] (for phpBB engine)
-    - topics_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
-        e.g. ["a >> class :: topictitle"] (for phpBB engine)
-    - threads_whitelist (List[str]): to validate URL with specific words, 
-        e.g. ["forum"] (for Invision engine)
-    - threads_blacklist (List[str]): but sometimes whitelist is not enough, 
-        e.g. ["topic"] (no, it is not a typo) (for Invision engine)
-    - topics_whitelist (List[str]): to validate URL with specific words, 
-        e.g. ["topic"] (for Invision engine)
-    - topics_blacklist (List[str]): but sometimes whitelist is not enough, 
-        e.g. ["page", "#comments"] (for Invision engine)
-    - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
-        or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
-    - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
-        e.g. ["content_class"] (for phpBB engine)
-
-    
-    :param config_manager (ConfigManager): Configuration class, containing settings with keys like 'FORUM_ENGINE', 'DATASET_URL', etc.
-
-    .. note:: The `urllib.robotparser` is used to ensure compliance with the forum's scraping policies as declared in its 'robots.txt'.
+    ensuring that the crawling process is optimized for the nuances of each forum software.
     """
     def __init__(self, config_manager: ConfigManager):
+        """
+        Manages the crawling process for various forum engine types.
+
+        :param config_manager (ConfigManager): Configuration class, containing settings with keys like 'FORUM_ENGINE', 'DATASET_URL', etc.
+        .. note:: The `urllib.robotparser` is used to ensure compliance with the forum's scraping policies as declared in its 'robots.txt'.
+
+        Important:
+        - threads_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+            e.g. ["a >> class :: forumtitle"] (for phpBB engine)
+        - topics_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+            e.g. ["a >> class :: topictitle"] (for phpBB engine)
+        - threads_whitelist (List[str]): to validate URL with specific words, 
+            e.g. ["forum"] (for Invision engine)
+        - threads_blacklist (List[str]): but sometimes whitelist is not enough, 
+            e.g. ["topic"] (no, it is not a typo) (for Invision engine)
+        - topics_whitelist (List[str]): to validate URL with specific words, 
+            e.g. ["topic"] (for Invision engine)
+        - topics_blacklist (List[str]): but sometimes whitelist is not enough, 
+            e.g. ["page", "#comments"] (for Invision engine)
+        - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+            or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
+        - topic_content_class (List[str]): Searched in <div id="page-body"> -> "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+            or "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+        - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+            e.g. ["content_class"] (for phpBB engine)
+        """
         self.engine_type = config_manager.settings['FORUM_ENGINE']
         self.forum_url = config_manager.settings['DATASET_URL']
         self.dataset_name = config_manager.settings['DATASET_NAME']
@@ -70,6 +74,25 @@ class ForumEnginesManager:
 
         self.robot_parser = config_manager.robot_parser
         self.force_crawl = config_manager.force_crawl
+
+        self.check_engine_content(config_manager)
+        
+        self.forum_threads = []
+        self.threads_topics = {}
+        self.urls_all = []
+
+        self.headers = config_manager.headers
+
+
+    ### Functions ###
+
+    def check_engine_content(self, config_manager: ConfigManager):
+        """
+        Check Engine type and assign default values for threads/topic/content classes and whitelist/blacklist.
+
+        :param config_manager(ConfigManager): ConfigManager class with settings.
+        """
+        logging.info(f"Checking engine type: {self.engine_type}")
 
         try:
             if self.engine_type == 'invision':
@@ -80,8 +103,10 @@ class ForumEnginesManager:
                 engine_type = IPBoardCrawler()
             elif self.engine_type == 'xenforo':
                 engine_type = XenForoCrawler()
+            elif self.engine_type == 'other':
+                engine_type = UnsupportedCrawler()
             else:
-                raise ValueError("Unsupported forum engine type")
+                raise ValueError("Unsupported forum engine type - you can chose: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']")
         except Exception as e:
             logging.error(f"{e}")
 
@@ -92,6 +117,7 @@ class ForumEnginesManager:
         self.topics_whitelist = engine_type.topics_whitelist
         self.topics_blacklist = engine_type.topics_blacklist
         self.pagination = engine_type.pagination
+        self.topic_content_class = engine_type.topic_content_class
         self.content_class = engine_type.content_class
 
         try:
@@ -115,11 +141,6 @@ class ForumEnginesManager:
         except Exception as e:
             logging.error(f"ForumEnginesManager: Error while extending lists of threads/topics/whitelist/blacklist to search! Error: {e}")
 
-        self.forum_threads = []
-        self.threads_topics = {}
-        self.urls_all = []
-
-        self.headers = config_manager.headers
 
     def crawl_forum(self) -> bool:
         """
@@ -146,10 +167,10 @@ class ForumEnginesManager:
 
             self.forum_threads = {key: value for d in self.forum_threads for key, value in d.items()}
 
-            logging.info(f"Found: Threads = {len(self.forum_threads)}")
-            logging.info(f"Found: Topics = {len(self.threads_topics)}")
+            logging.info(f"Crawler found: Threads = {len(self.forum_threads)}")
+            logging.info(f"Crawler found: Topics = {len(self.threads_topics)}")
 
-            if len(self.forum_threads) and len(self.threads_topics):
+            if len(self.threads_topics):
                 return False
 
             return True
@@ -296,7 +317,7 @@ class ForumEnginesManager:
                         else:
                             logging.debug("Button to next page - NOT FOUND")
                             continue
-                    except:
+                    except Exception as e:
                         html_tag, pag_type_class = pagination_class.split(" >> ")
                         pag_type, pag_class = pag_type_class.split(" :: ")
                         next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
@@ -304,6 +325,7 @@ class ForumEnginesManager:
                             logging.debug("Button to next page - FOUND -> wierd spot")
                         else:
                             logging.debug("Button to next page - NOT FOUND")
+                            logging.debug(f"Error: {e}")
                             continue
                 except Exception as e:
                     if e:
@@ -396,6 +418,7 @@ class InvisionCrawler:
         self.topics_whitelist: List[str] = ["topic"]
         self.topics_blacklist: List[str] = ["page", "#comments"]
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
+        self.topic_content_class: List[str] = []
         self.content_class: List[str] = ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"]  # Used for content_class
 
 class PhpBBCrawler:
@@ -410,6 +433,7 @@ class PhpBBCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
+        self.topic_content_class: List[str] = []
         self.content_class: List[str] = ["content_class"]                      # Used for content_class / messages
 
 class IPBoardCrawler:
@@ -424,6 +448,7 @@ class IPBoardCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["next"]                           # Used for subforums and topics pagination
+        self.topic_content_class: List[str] = []
         self.content_class: List[str] = ["post entry-content_class"]           # Used for content_class / messages
 
 class XenForoCrawler:
@@ -438,4 +463,20 @@ class XenForoCrawler:
         self.topics_whitelist: List[str] = ["threads"]
         self.topics_blacklist: List[str] = ["preview"]
         self.pagination: List[str] = ["pageNav-jump pageNav-jump--next"]  # Used for subforums and topics pagination
+        self.topic_content_class: List[str] = []
         self.content_class: List[str] = ["message-body js-selectToQuote"]        # Used for content_class / messages
+
+class UnsupportedCrawler:
+    """
+    Specific functionalities for Unsupported forum engines
+    """
+    def __init__(self):
+        self.threads_class: List[str] = []
+        self.topics_class: List[str] = []
+        self.threads_whitelist: List[str] = []
+        self.threads_blacklist: List[str] = []
+        self.topics_whitelist: List[str] = []
+        self.topics_blacklist: List[str] = []
+        self.pagination: List[str] = []
+        self.topic_content_class: List[str] = []
+        self.content_class: List[str] = []

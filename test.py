@@ -28,13 +28,11 @@ if __name__ == "__main__":
 
 
     # Use the settings from config_manager.settings as needed
-    print(config_manager.settings)
-
     crawler = ForumEnginesManager(config_manager)
     print(crawler.crawl_forum())
-    print(f"Forum Threads = {len(crawler.forum_threads)}")
-    print(f"Threads Topics = {len(crawler.threads_topics)}")
-    print(f"Crawler found URLs = {len(crawler.urls_all)}")
+    print(f"MAIN: Forum Threads = {len(crawler.forum_threads)}")
+    print(f"MAIN: Threads Topics = {len(crawler.threads_topics)}")
+    print(f"MAIN: Crawler found URLs = {len(crawler.urls_all)}")
 
     forum_threads = pd.DataFrame({'URL': thread_url, 'Thread': thread_name} for thread_url, thread_name in crawler.forum_threads.items())
     print(forum_threads.shape)

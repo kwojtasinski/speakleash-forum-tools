@@ -25,80 +25,60 @@ class ConfigManager:
     """
     A configuration manager for setting up and managing settings for a forum crawler.
 
-    Attributes:
-        settings (dict): A dictionary of all the settings for the crawler.
-        robot_parser (RobotFileParser): Parser for robots.txt (if check_robots is True)
-        headers (dict): Headers e.g. 'User-Agent' of crawler. 
     """
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
                  processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], content_class: List[str] = []):
+                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []):
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
-        Args:
-            dataset_url (str): The base URL of the dataset/forum to be crawled.
-            dataset_category (str): The category of the dataset/forum.
-            forum_engine (str): The forum engine used on website.
-            arg_parser (bool): Flag to determine if command-line arguments should be parsed.
-            check_robots (bool): Flag to determine if robots.txt should be checked.
-            force_crawl (bool): Flag to force crawling even if disallowed by robots.txt.
-            processes (int): Number of processes to use for multiprocessing.
-            time_sleep (float): Time in seconds to sleep between requests.
-            save_state (int): Interval at which to save crawling state.
-            min_len_txt (int): Minimum length of text to consider as valid data.
-            threads_class (List[str]): CSS selectors used for identifying thread links in the forum. Example for Invision forum: ["div >> ipsDataItem_main"].
-            topics_class (List[str]): CSS selectors used for identifying topic links within a thread. Example for Invision forum: ["div >> ipsDataItem_main"].
-            threads_whitelist (List[str]): List of substrings; only threads whose URLs contain any of these substrings will be processed. Example for Invision forum: ["forum"].
-            threads_blacklist (List[str]): List of substrings; threads whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["topic"].
-            topics_whitelist (List[str]): List of substrings; only topics whose URLs contain any of these substrings will be processed. Example for Invision forum: ["topic"].
-            topics_blacklist (List[str]): List of substrings; topics whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["page", "#comments"].
-            pagination (List[str]): CSS selectors used for identifying pagination elements within threads or topics. Example for Invision forum: ["ipsPagination_next"].
-            content_class (List[str]): CSS selectors used for identifying the main content within a topic. Example for Invision forum: ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"].
+        Params:
+            - dataset_url (str): The base URL of the dataset/forum to be crawled.
+            - dataset_category (str): The category of the dataset/forum.
+            - forum_engine (str): The forum engine used on website: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']
+            - arg_parser (bool): Flag to determine if command-line arguments should be parsed.
+            - check_robots (bool): Flag to determine if robots.txt should be checked.
+            - force_crawl (bool): Flag to force crawling even if disallowed by robots.txt.
+            - processes (int): Number of processes to use for multiprocessing.
+            - time_sleep (float): Time in seconds to sleep between requests.
+            - save_state (int): Interval at which to save crawling state.
+            - min_len_txt (int): Minimum length of text to consider as valid data.
+            - threads_class (List[str]): HTML selectors used for identifying thread links in the forum. 
+                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: forumtitle"] (for phpBB engine).
+            - topics_class (List[str]): HTML selectors used for identifying topic links within a thread. 
+                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: topictitle"] (for phpBB engine)
+            - threads_whitelist (List[str]): List of substrings; only threads whose URLs contain any of these substrings will be processed. Example for Invision forum: ["forum"].
+            - threads_blacklist (List[str]): List of substrings; threads whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["topic"].
+            - topics_whitelist (List[str]): List of substrings; only topics whose URLs contain any of these substrings will be processed. Example for Invision forum: ["topic"].
+            - topics_blacklist (List[str]): List of substrings; topics whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["page", "#comments"].
+            - pagination (List[str]): HTML selectors used for identifying pagination elements within threads or topics.
+                "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+                or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
+            - topic_content_class (List[str]): Searched in <div id="page-body"> -> "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+                or "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+            - content_class (List[str]): HTML selectors used for identifying the main content within a topic.
+                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["content_class"] (for phpBB engine)
 
+        Attributes:
+        - settings (dict): A dictionary of all the settings for the crawler.
+        - robot_parser (RobotFileParser): Parser for robots.txt (if check_robots is True)
+        - headers (dict): Headers e.g. 'User-Agent' of crawler. 
+        - force_crawl (bool): Indicates whether robots.txt is taken into account (e.g. robots.txt is parsed wrongly)
         """
+        # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
+        logging.info("+++++++++++++++++++++++++++++++++++++++++++")
 
-        try:
-            not_instance_flag = False
-
-            if not isinstance(threads_class, list):
-                logging.warning("Please check param: threads_class")
-                not_instance_flag = True
-            if not isinstance(threads_whitelist, list):
-                logging.warning("Please check param: threads_whitelist")
-                not_instance_flag = True
-            if not isinstance(threads_blacklist, list):
-                logging.warning("Please check param: threads_blacklist")
-                not_instance_flag = True
-            if not isinstance(topic_class, list):
-                logging.warning("Please check param: topic_class")
-                not_instance_flag = True
-            if not isinstance(topic_whitelist, list):
-                logging.warning("Please check param: topic_whitelist")
-                not_instance_flag = True
-            if not isinstance(topic_blacklist, list):
-                logging.warning("Please check param: topic_blacklist")
-                not_instance_flag = True
-            if not isinstance(pagination, list):
-                logging.warning("Please check param: pagination")
-                not_instance_flag = True
-            if not isinstance(content_class, list):
-                logging.warning("Please check param: content_class")
-                not_instance_flag = True
-            if not_instance_flag == True:
-                logging.warning("Exiting... Check parameters...")
-                exit()
-        except Exception as e:
-            logging.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
-
-        self.settings = self._initialize_settings(dataset_url, dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
+        self._check_instance(threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_content_class = topic_content_class, content_class = content_class)
+        
+        self.settings = self._initialize_settings(dataset_url = dataset_url, dataset_category = dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
                             processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl,
                             threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
-                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, content_class = content_class)
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_content_class = topic_content_class, content_class = content_class)
         
         if arg_parser == True:
             self._parse_arguments()
@@ -110,8 +90,6 @@ class ConfigManager:
 	        "Connection": "keep-alive"
 	    }
 
-        # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
-        logging.info("+++++++++++++++++++++++++++++++++++++++++++")
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
 
         if check_robots == True:
@@ -121,27 +99,21 @@ class ConfigManager:
             self.robot_parser = None
             self.force_crawl = True
 
-        logging.info(f"Settings for manifest:  \n \
-                        {self.settings['DATASET_CATEGORY']=}\n \
-                        {self.settings['DATASET_URL']=}\n \
-                        {self.settings['DATASET_NAME']=}\n \
-                        {self.settings['DATASET_DESCRIPTION']=}\n \
-                        {self.settings['DATASET_LICENSE']=}")
-        logging.info(f"Settings for scraper: \n \
-                        {self.settings['FORUM_ENGINE']=}\n \
-                        {self.settings['PROCESSES']=}\n \
-                        {self.settings['TIME_SLEEP']=}\n \
-                        {self.settings['SAVE_STATE']=}\n \
-                        {self.settings['MIN_LEN_TXT']=}\n \
-                        {self.settings['SITEMAPS']=}\n \
-                        {self.settings['FORCE_CRAWL']=}")
-        
+        self._print_settings()
+
+
+    ### Functions ###
+
     def _initialize_settings(self, dataset_url: str, dataset_category: str, dataset_name: str = "", forum_engine: str = 'invision', processes: int = 2,
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False,
                 threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], content_class: List[str] = []) -> dict:
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []) -> dict:
         """
-        Initialize dict with info for manifest and settings for crawler / scraper.
+        Initialize dict with info for manifest and settings for crawler/scraper.
+
+        :param: a lot
+
+        :return: Dict with settings for manifest and crawler/scraper.
         """
         parsed_url = urlparse(dataset_url)
         dataset_domain = parsed_url.netloc.replace('www.', '')
@@ -168,6 +140,7 @@ class ConfigManager:
             'TOPICS_WHITELIST': topic_whitelist,
             'TOPICS_BLACKLIST': topic_blacklist,
             'PAGINATION': pagination,
+            'TOPIC_CONTENT_CLASS': topic_content_class,
             'CONTENT_CLASS': content_class
         }
 
@@ -178,16 +151,25 @@ class ConfigManager:
         parser = argparse.ArgumentParser(description='Crawler and scraper for forums')
         parser.add_argument("-D_C", "--DATASET_CATEGORY", help="Set category e.g. Forum", default="Forum", type=str)
         parser.add_argument("-D_U" , "--DATASET_URL", help="Desire URL with http/https e.g. https://forumaddress.pl", default="", type=str)
-        parser.add_argument("-D_E" , "--FORUM_ENGINE", help="Engine used to build forum website", default="", type=str)
         parser.add_argument("-D_N" , "--DATASET_NAME", help="Dataset name e.g. forum_<url_domain>_pl_corpus", default="", type=str)
         parser.add_argument("-D_D" , "--DATASET_DESCRIPTION", help="Description e.g. Collection of forum discussions from DATASET_URL", default="", type=str)
         parser.add_argument("-D_L" , "--DATASET_LICENSE", help="Dataset license e.g. (c) DATASET_URL", default="", type=str)
+        parser.add_argument("-D_E" , "--FORUM_ENGINE", help="Engine used to build forum website: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']", default="", type=str)
         parser.add_argument("-proc", "--PROCESSES", help="Number of processes - from 1 up to os.cpu_count()", type=int)
         parser.add_argument("-sleep", "--TIME_SLEEP", help="Waiting interval between requests (in sec)", type=float)
         parser.add_argument("-save", "--SAVE_STATE", help="URLs interval at which script saves data, prevents from losing data if crashed or stopped", type=int)
         parser.add_argument("-min_len", "--MIN_LEN_TXT", help="Minimum character count to consider it a text data", type=int)
         parser.add_argument("-sitemaps" , "--SITEMAPS", help="Desire URL with sitemaps", default="", type=str)
         parser.add_argument("-force", "--FORCE_CRAWL", help="Force to crawl website - overpass robots.txt", action='store_true')
+        parser.add_argument("-threads_class", "--THREADS_CLASS", help="Threads/Forums HTML tags: <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['a >> class :: forumtitle'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-threads_whitelist", "--THREADS_WHITELIST", help="Threads/Forums whitelist for URLs, e.g. ['forum'] (for Invision engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-threads_blacklist", "--THREADS_BLACKLIST", help="Threads/Forums blacklist for URLs, e.g. ['topic'] (no, it is not a typo) (for Invision engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-topics_class", "--TOPICS_CLASS", help="Topics HTML tags: <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['a >> class :: topictitle'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-topics_whitelist", "--TOPICS_WHITELIST", help="Topics whitelist for URLs, e.g. ['topic'] (for Invision engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-topics_blacklist", "--TOPICS_BLACKLIST", help="Topics blacklist for URLs, e.g. ['page', '#comments'] (no, it is not a typo) (for Invision engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-pagination", "--PAGINATION", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['arrow next', 'right-box right', 'title :: Dalej'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-content_class", "--CONTENT_CLASS", help="Topics HTML tags: <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['div >> class :: content'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-topic_content_class", "--TOPIC_CONTENT_CLASS", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['h2 >> :: ', 'h2 >> class :: topic-title'] (for phpBB engine) | (can pass multiple)", nargs='*')
         args = parser.parse_args()
 
         parsed_url = urlparse(args.DATASET_URL)
@@ -226,13 +208,14 @@ class ConfigManager:
             with urllib.request.urlopen(urllib.request.Request(urljoin(robots_url, "robots.txt"), headers={'User-Agent': 'Python'})) as response:
                 try:
                     rp.parse(response.read().decode("utf-8").splitlines())
-                except:
-                    logging.error("Error while parsing lines -> using 'latin-1' ")
+                except Exception as e:
+                    logging.error(f"Error while parsing lines -> using 'latin-1' || Error: {e}")
                     rp.parse(response.read().decode("latin-1").splitlines())
-        except:
+        except Exception as err:
             rp.set_url(urljoin(robots_url, "robots.txt"))
             rp.read()
             logging.info("Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
+            logging.warning(f"Error while parsing lines: {err}")
             time.sleep(60)
 
 
@@ -262,3 +245,57 @@ class ConfigManager:
             self.settings['SITEMAPS'] = rp.site_maps()
 
         return (rp, force_crawl)
+    
+
+    def _check_instance(self, threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []) -> None:
+        """
+        Check instance of lists for threads/topic/pagination/content classes and whitelist/blacklist.
+        """
+        try:
+            not_instance_flag = False
+
+            if not isinstance(threads_class, list):
+                logging.warning("Please check param: threads_class")
+                not_instance_flag = True
+            if not isinstance(threads_whitelist, list):
+                logging.warning("Please check param: threads_whitelist")
+                not_instance_flag = True
+            if not isinstance(threads_blacklist, list):
+                logging.warning("Please check param: threads_blacklist")
+                not_instance_flag = True
+            if not isinstance(topic_class, list):
+                logging.warning("Please check param: topic_class")
+                not_instance_flag = True
+            if not isinstance(topic_whitelist, list):
+                logging.warning("Please check param: topic_whitelist")
+                not_instance_flag = True
+            if not isinstance(topic_blacklist, list):
+                logging.warning("Please check param: topic_blacklist")
+                not_instance_flag = True
+            if not isinstance(pagination, list):
+                logging.warning("Please check param: pagination")
+                not_instance_flag = True
+            if not isinstance(topic_content_class, list):
+                logging.warning("Please check param: topic_content_class")
+                not_instance_flag = True
+            if not isinstance(content_class, list):
+                logging.warning("Please check param: content_class")
+                not_instance_flag = True
+            if not_instance_flag == True:
+                logging.warning("Exiting... Check parameters...")
+                exit()
+        except Exception as e:
+            logging.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
+
+
+    def _print_settings(self) -> None:
+
+        logging.info("--- Print all Settings ---")
+
+        for key, value in self.settings.items():
+            logging.info(f"{key}: {value}")
+
+        logging.info("---                    ---")
+
+
