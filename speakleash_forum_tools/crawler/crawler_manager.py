@@ -67,35 +67,38 @@ class CrawlerManager:
         self.topics_dataset_file = f"Topics_URLs_{self.dataset_name}.csv"
         self.topics_visited_file = f"Visited_URLs_{self.dataset_name}.csv"
 
-        self.check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
+        self.forum_topics, self.visited_topics = self.check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
-        forum_engine = ForumEnginesManager(config_manager = config_manager)
-        
-        if config_manager.settings['SITEMAPS']:
-            self.sitemaps_url = config_manager.settings['SITEMAPS']
+        if not self.forum_topics.empty:
+            logging.info(f"* CralwerManager found file with Topics...")
         else:
-            self.sitemaps_url = config_manager.main_site
+            forum_engine = ForumEnginesManager(config_manager = config_manager)
 
-        try:
-            logging.info("---------------------------------------------------------------------------------------------------")
-            logging.info(f"* Crawler will try to find and parse Sitemaps (using 'usp' library)...")
-            forum_tree = self._tree_sitemap(self.sitemaps_url)
-            self.forum_topics_list = self._urls_generator(forum_tree = forum_tree, 
-                                                         whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
-                                                         robotparser = config_manager.robot_parser, force_crawl = config_manager.force_crawl)
-            logging.info("---------------------------------------------------------------------------------------------------")
-        except Exception as e:
-            logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
+            if config_manager.settings['SITEMAPS']:
+                self.sitemaps_url = config_manager.settings['SITEMAPS']
+            else:
+                self.sitemaps_url = config_manager.main_site
 
-        if not self.forum_topics_list:
-            logging.warning("---------------------------------------------------------------------------------------------------")
-            logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {forum_engine.engine_type}")
-            
-            if forum_engine.crawl_forum():
-                self.forum_topics_list = forum_engine.get_topics_urls_only()
-                self.forum_topics_list_titles = forum_engine.get_topics_titles_only()
+            try:
+                logging.info("---------------------------------------------------------------------------------------------------")
+                logging.info(f"* Crawler will try to find and parse Sitemaps (using 'usp' library)...")
+                forum_tree = self._tree_sitemap(self.sitemaps_url)
+                self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
+                                                             whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
+                                                             robotparser = config_manager.robot_parser, force_crawl = config_manager.force_crawl)
+                logging.info("---------------------------------------------------------------------------------------------------")
+            except Exception as e:
+                logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
 
-        logging.info(f"* Crawler (Manager) found: Topics = {len(self.forum_topics_list)}")
+            if self.forum_topics.empty:
+                logging.warning("---------------------------------------------------------------------------------------------------")
+                logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {forum_engine.engine_type}")
+
+                if forum_engine.crawl_forum():
+                    self.forum_topics['Topic_URLs'] = forum_engine.get_topics_urls_only()
+                    self.forum_topics['Topic_Titles'] = forum_engine.get_topics_titles_only()
+
+        logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
 
 
     ### Functions ###
@@ -174,10 +177,8 @@ class CrawlerManager:
         """
         dataset_folder = os.path.join(self.files_folder, self.dataset_name)
         
-        sitemap_tree = []
         topics_links = pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles'])
         visited_links = pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
-        flag_fresh_start = False
 
         if os.path.exists(dataset_folder):
             logging.info(f"* Folder for [{dataset_name}] exists -> Checking files...")
@@ -199,54 +200,10 @@ class CrawlerManager:
             logging.info(f"* Can't find folder for [{dataset_name}]... -> Create new folder...")
             os.makedirs(dataset_folder)
 
-        if topics_links:
+        if not topics_links.empty:
             topics_links = topics_links.drop_duplicates(ignore_index=True)
-            topics = True
-        else:
-            topics = False
 
-        if visited_links:
+        if not visited_links.empty:
             visited_links = visited_links.drop_duplicates(ignore_index=True)
-            visited = True
-        else:
-            visited = False
 
-        # Check if file with URLs from sitemaps exist, if not search for sitemaps and return links
-        if os.path.exists(path = topics_urls_filename):
-            logging.info(f"*** Resuming from previous progress... ***")
-            # Read the saved URLs from the file
-            logging.info(f"CHECK_TOPICS_FILES // Importing DataFrame for: {dataset_name}")
-            topics_links = pandas.read_csv(topics_urls_filename, sep = '\t', header = None, names = ['urls','visited','skip'])
-            logging.info(f"CHECK_TOPICS_FILES // Imported DataFrame for: {DATASET_URL} | Shape: {forum_links.shape} | Size in memory (MB): {forum_links.memory_usage(deep=True).sum() / pow(10,6)}")
-        else:
-            logging.info(f"*** Starting from scratch... ***")
-            # Create sitemap tree for domain url
-            logging.info(f"CHECK_TOPICS_FILES // Creating sitemaps tree...")
-            sitemap_tree = tree_sitemap(DATASET_URL)
-            logging.info(f"CHECK_TOPICS_FILES // Created sitemaps tree for: {DATASET_URL}")
-
-            # Create DataFrame with URLs + columns: 'visited','skip'
-            forum_links = pandas.DataFrame(urls_generator(sitemap_tree), columns=['urls'])
-            if forum_links.shape[0] == 0:
-                logging.error(f"CHECK_TOPICS_FILES + SITEMAP // No valid URL found in SITEMAPs -> Check it manually ({forum_links.shape=})")
-                raise ValueError("No valid URL found in SITEMAPs.")
-            forum_links.drop_duplicates(inplace=True, ignore_index=True)
-            forum_links['visited'] = 0
-            forum_links['skip'] = 0
-            logging.info(f"CHECK_TOPICS_FILES // Created DataFrame for: {DATASET_URL} | Shape: {forum_links.shape} | Size in memory (MB): {forum_links.memory_usage(deep=True).sum() / pow(10,6)}")
-            save_visited_dataframe(urls = forum_links, file_name = urls_filename)
-            flag_fresh_start = True
-
-
-        # Check if file with visited is created, if not then create
-        if os.path.exists(visited_filename) and flag_fresh_start == False:
-            logging.info(f"FILE_CHECK // Reading file with visited links ...")
-            visited_links = pandas.read_csv(visited_filename, sep = '\t', header = None, names = ['urls','visited','skip'])
-            visited_links.drop_duplicates(inplace=True, ignore_index=True)
-            logging.info(f"FILE_CHECK // File for saving visited links already created: {visited_filename} | Lines: {visited_links.shape} | Visited: {visited_links['visited'].sum()} | Skipped: {visited_links['skip'].sum()}")
-        else:
-            with open(visited_filename, "w") as f:
-                pass
-            logging.info(f"FILE_CHECK // File for saving visited links created: {visited_filename}")
-
-        return forum_links, visited_links
+        return topics_links, visited_links
