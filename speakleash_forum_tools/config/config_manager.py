@@ -20,6 +20,8 @@ import urllib.robotparser
 from urllib.parse import urlparse, urljoin
 from typing import Optional, Tuple, List
 
+from speakleash_forum_tools.utils import check_for_library_updates
+
 
 class ConfigManager:
     """
@@ -31,7 +33,7 @@ class ConfigManager:
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
                  processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []):
+                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []):
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
@@ -57,10 +59,10 @@ class ConfigManager:
             - pagination (List[str]): HTML selectors used for identifying pagination elements within threads or topics.
                 "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
                 or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
-            - topic_content_class (List[str]): Searched in <div id="page-body"> -> "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
-                or "<anchor_tag> >> <attribute_name> :: <attribute_value>"
-            - content_class (List[str]): HTML selectors used for identifying the main content within a topic.
-                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["content_class"] (for phpBB engine)
+            - topic_title_class (List[str]): HTML selector for topic title on topic website. Searche for first instance -> "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+                e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
+            - content_class (List[str]): HTML selectors used for identifying the main content within a topic. "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
+                e.g. ["content_class"] (for phpBB engine)
 
         Attributes:
         - settings (dict): A dictionary of all the settings for the crawler.
@@ -70,15 +72,18 @@ class ConfigManager:
         """
         # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
+
+        #TODO: check_for_library_updates()
+
         logging.info("+++++++++++++++++++++++++++++++++++++++++++")
 
         self._check_instance(threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
-                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_content_class = topic_content_class, content_class = content_class)
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_title_class = topic_title_class, content_class = content_class)
         
         self.settings = self._initialize_settings(dataset_url = dataset_url, dataset_category = dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
                             processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl,
                             threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
-                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_content_class = topic_content_class, content_class = content_class)
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_title_class = topic_title_class, content_class = content_class)
         
         if arg_parser == True:
             self._parse_arguments()
@@ -92,11 +97,13 @@ class ConfigManager:
 
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
 
+        self._get_main_site()
+
         if check_robots == True:
             logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
             self.robot_parser, self.force_crawl = self._check_robots_txt(force_crawl = self.settings['FORCE_CRAWL'])
         else:
-            self.robot_parser = None
+            self.robot_parser = self.init_robotstxt()
             self.force_crawl = True
 
         self._print_settings()
@@ -107,7 +114,7 @@ class ConfigManager:
     def _initialize_settings(self, dataset_url: str, dataset_category: str, dataset_name: str = "", forum_engine: str = 'invision', processes: int = 2,
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False,
                 threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []) -> dict:
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []) -> dict:
         """
         Initialize dict with info for manifest and settings for crawler/scraper.
 
@@ -140,7 +147,7 @@ class ConfigManager:
             'TOPICS_WHITELIST': topic_whitelist,
             'TOPICS_BLACKLIST': topic_blacklist,
             'PAGINATION': pagination,
-            'TOPIC_CONTENT_CLASS': topic_content_class,
+            'TOPIC_TITLE_CLASS': topic_title_class,
             'CONTENT_CLASS': content_class
         }
 
@@ -168,8 +175,8 @@ class ConfigManager:
         parser.add_argument("-topics_whitelist", "--TOPICS_WHITELIST", help="Topics whitelist for URLs, e.g. ['topic'] (for Invision engine) | (can pass multiple)", nargs='*')
         parser.add_argument("-topics_blacklist", "--TOPICS_BLACKLIST", help="Topics blacklist for URLs, e.g. ['page', '#comments'] (no, it is not a typo) (for Invision engine) | (can pass multiple)", nargs='*')
         parser.add_argument("-pagination", "--PAGINATION", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['arrow next', 'right-box right', 'title :: Dalej'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-topic_title_class", "--TOPIC_TITLE_CLASS", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['h2 >> :: ', 'h2 >> class :: topic-title'] (for phpBB engine) | (can pass multiple)", nargs='*')
         parser.add_argument("-content_class", "--CONTENT_CLASS", help="Topics HTML tags: <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['div >> class :: content'] (for phpBB engine) | (can pass multiple)", nargs='*')
-        parser.add_argument("-topic_content_class", "--TOPIC_CONTENT_CLASS", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['h2 >> :: ', 'h2 >> class :: topic-title'] (for phpBB engine) | (can pass multiple)", nargs='*')
         args = parser.parse_args()
 
         parsed_url = urlparse(args.DATASET_URL)
@@ -196,16 +203,13 @@ class ConfigManager:
 
         :return: Returns Tuple with robotparser and force_crawl parameter.
         """
-        robots_url = self.settings['DATASET_URL']
-        parsed_url = urlparse(self.settings['DATASET_URL'])
-        if parsed_url.path:
-            robots_url = self.settings['DATASET_URL'].replace(parsed_url.path, '')
-            logging.warning(f"* robots.txt expected url: {robots_url}/robots.txt")
+        robots_url = self.main_site
+        logging.info(f"* robots.txt expected url: {robots_url}/robots.txt")
         
         rp = urllib.robotparser.RobotFileParser()
         try:
             logging.info("Parsing 'robots.txt' lines")
-            with urllib.request.urlopen(urllib.request.Request(urljoin(robots_url, "robots.txt"), headers={'User-Agent': 'Python'})) as response:
+            with urllib.request.urlopen(urllib.request.Request(urljoin(robots_url, "robots.txt"), headers=self.headers)) as response:
                 try:
                     rp.parse(response.read().decode("utf-8").splitlines())
                 except Exception as e:
@@ -245,10 +249,20 @@ class ConfigManager:
             self.settings['SITEMAPS'] = rp.site_maps()
 
         return (rp, force_crawl)
-    
+
+
+    def _get_main_site(self):
+        """
+        Set 'self.main_site' as url without path (if found).
+        """
+        self.main_site = self.settings['DATASET_URL']
+        parsed_url = urlparse(self.settings['DATASET_URL'])
+        if parsed_url.path:
+            self.main_site = self.settings['DATASET_URL'].replace(parsed_url.path, '')
+
 
     def _check_instance(self, threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_content_class: List[str] = [], content_class: List[str] = []) -> None:
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []) -> None:
         """
         Check instance of lists for threads/topic/pagination/content classes and whitelist/blacklist.
         """
@@ -276,8 +290,8 @@ class ConfigManager:
             if not isinstance(pagination, list):
                 logging.warning("Please check param: pagination")
                 not_instance_flag = True
-            if not isinstance(topic_content_class, list):
-                logging.warning("Please check param: topic_content_class")
+            if not isinstance(topic_title_class, list):
+                logging.warning("Please check param: topic_title_class")
                 not_instance_flag = True
             if not isinstance(content_class, list):
                 logging.warning("Please check param: content_class")
@@ -292,10 +306,27 @@ class ConfigManager:
     def _print_settings(self) -> None:
 
         logging.info("--- Print all Settings ---")
-
+        to_print = ""
         for key, value in self.settings.items():
-            logging.info(f"{key}: {value}")
+            to_print = to_print + f"\n{key}: {value}"
 
-        logging.info("---                    ---")
+        logging.info(to_print)
+        logging.info("--- --- --- --- --- --- ---")
 
+
+    def init_robotstxt(self) -> urllib.robotparser.RobotFileParser:
+        file = "User-agent: *\nAllow: /"
+        
+        rp = urllib.robotparser.RobotFileParser()
+        
+        logging.info("Parsing illusion of 'robots.txt'")
+        rp.parse(file)
+
+        if not rp.can_fetch("*", self.settings['DATASET_URL']):
+            logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
+            exit()
+        else:
+            logging.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
+
+        return rp
 

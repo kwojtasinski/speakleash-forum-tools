@@ -11,20 +11,19 @@ handling the extraction of threads and topics from forum pages. It respects site
 as defined in the 'robots.txt' file and supports customizable filtering for thread and topic URLs.
 
 Dependencies:
-- logging: Utilized for logging various stages and activities during the crawling process.
-- requests: Used for making HTTP requests to fetch forum pages.
 - bs4 (BeautifulSoup): Aids in parsing HTML content of forum pages for data extraction.
-- urllib.parse (urljoin): Assists in constructing absolute URLs from relative paths.
+
 """
 import time
 import logging
 import requests
-import dataclasses
+# import dataclasses
 import urllib3
 from urllib.parse import urljoin
 from typing import Optional, Union, List
 
 from bs4 import BeautifulSoup
+
 from speakleash_forum_tools.config import ConfigManager
 from speakleash_forum_tools.utils import create_session
 
@@ -61,11 +60,12 @@ class ForumEnginesManager:
             e.g. ["page", "#comments"] (for Invision engine)
         - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
             or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
-        - topic_content_class (List[str]): Searched in <div id="page-body"> -> "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
-            or "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+        - topic_title_class (List[str]): Searched for first instance -> "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+            e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
         - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
             e.g. ["content_class"] (for phpBB engine)
         """
+        self.headers = config_manager.headers
         self.engine_type = config_manager.settings['FORUM_ENGINE']
         self.forum_url = config_manager.settings['DATASET_URL']
         self.dataset_name = config_manager.settings['DATASET_NAME']
@@ -79,9 +79,6 @@ class ForumEnginesManager:
         
         self.forum_threads = []
         self.threads_topics = {}
-        self.urls_all = []
-
-        self.headers = config_manager.headers
 
 
     ### Functions ###
@@ -117,7 +114,7 @@ class ForumEnginesManager:
         self.topics_whitelist = engine_type.topics_whitelist
         self.topics_blacklist = engine_type.topics_blacklist
         self.pagination = engine_type.pagination
-        self.topic_content_class = engine_type.topic_content_class
+        self.topic_title_class = engine_type.topic_title_class
         self.content_class = engine_type.content_class
 
         try:
@@ -149,26 +146,26 @@ class ForumEnginesManager:
 
         :return: A boolean indicating the success or failure of the crawling process.
         """
-        logging.info(f"Starting crawl on: {self.forum_url}")
+        logging.info(f"Starting crawler on: {self.forum_url}")
 
         try:
             # Fetch the main page of the forum and extract thread links
             session = create_session()
-            self.forum_threads.append(self.get_forum_threads(self.forum_url, session = session))
+            self.forum_threads.append(self._get_forum_threads(self.forum_url, session = session))
             
             # Iterate over each thread and extract topics
             for x in self.forum_threads:
                 for thread_url, thread_name in x.items():
                     logging.info(f"Crawling thread: || {thread_name} || at {thread_url}")
-                    topics = self.get_thread_topics(thread_url, session = session)
+                    topics = self._get_thread_topics(thread_url, session = session)
                     self.threads_topics.update(topics)
                     logging.info(f"-> All Topics found: {len(self.threads_topics)}")
                     time.sleep(self.time_sleep)
 
             self.forum_threads = {key: value for d in self.forum_threads for key, value in d.items()}
 
-            logging.info(f"Crawler found: Threads = {len(self.forum_threads)}")
-            logging.info(f"Crawler found: Topics = {len(self.threads_topics)}")
+            logging.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
+            logging.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
 
             if len(self.threads_topics):
                 return False
@@ -180,7 +177,7 @@ class ForumEnginesManager:
             logging.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
             return False
 
-    def get_forum_threads(self, url_now: str, session: requests.Session) -> dict:
+    def _get_forum_threads(self, url_now: str, session: requests.Session) -> dict:
         """
         Retrieves all the threads listed on a given forum page by utilizing the CSS selectors specified for the forum engine.
 
@@ -192,10 +189,10 @@ class ForumEnginesManager:
         response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        forum_threads = self._get_forum_threads(soup)
+        forum_threads = self._get_forum_threads_extract(soup)
         return forum_threads
 
-    def _get_forum_threads(self, soup: BeautifulSoup) -> dict:
+    def _get_forum_threads_extract(self, soup: BeautifulSoup) -> dict:
         """
         Extracts valid threads from the forum page.
 
@@ -210,7 +207,7 @@ class ForumEnginesManager:
             th_type, th_class = th_type_class.split(" :: ")
             threads = soup.find_all(html_tag, {th_type: th_class})
 
-            threads_found = self._crawler_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist,
+            threads_found = self._crawler_search_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist,
                                                   blacklist = self.threads_blacklist, robotparser = self.robot_parser, 
                                                   forum_url = self.forum_url, force_crawl = self.force_crawl)
             forum_threads.update(threads_found)
@@ -224,7 +221,7 @@ class ForumEnginesManager:
         return forum_threads
 
 
-    def get_thread_topics(self, url_now: str, session: requests.Session) -> dict:
+    def _get_thread_topics(self, url_now: str, session: requests.Session) -> dict:
         """
         Retrieves all the topics listed on a given thread (forum) page by utilizing the CSS selectors specified for the forum engine.
 
@@ -238,7 +235,7 @@ class ForumEnginesManager:
         response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        thread_topics = self._get_thread_topics(soup = soup)
+        thread_topics = self._get_thread_topics_extract(soup = soup)
         logging.info(f"--> Topics found in thread: {len(thread_topics)}")
 
         # Find the link to the next page
@@ -251,7 +248,7 @@ class ForumEnginesManager:
                 response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
-                thread_topics.update(self._get_thread_topics(soup = soup))
+                thread_topics.update(self._get_thread_topics_extract(soup = soup))
                 logging.info(f"--> Topics found in thread: {len(thread_topics)}")
             else:
                 break
@@ -259,7 +256,7 @@ class ForumEnginesManager:
         return thread_topics
 
 
-    def _get_thread_topics(self, soup: BeautifulSoup) -> dict:
+    def _get_thread_topics_extract(self, soup: BeautifulSoup) -> dict:
         """
         Extracts valid topics from the forum page.
 
@@ -277,12 +274,12 @@ class ForumEnginesManager:
             logging.debug(f"Found URLs = {len(topics)}")
 
             if len(topics) == 0:
-                forum_threads = self._get_forum_threads(soup=soup)
+                forum_threads = self._get_forum_threads_extract(soup=soup)
                 self.forum_threads.append(forum_threads)
                 logging.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
                 continue
             
-            topics_found = self._crawler_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist,
+            topics_found = self._crawler_search_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist,
                                                  blacklist = self.topics_blacklist, robotparser = self.robot_parser, 
                                                  forum_url = self.forum_url, force_crawl = self.force_crawl)
             thread_topics.update(topics_found)
@@ -349,7 +346,7 @@ class ForumEnginesManager:
         return False
     
     @staticmethod
-    def _crawler_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str], robotparser, forum_url: str, force_crawl: bool = False) -> dict:
+    def _crawler_search_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str], robotparser, forum_url: str, force_crawl: bool = False) -> dict:
         """
         Filtering found URLs and check them with robots.txt parser.
 
@@ -406,6 +403,16 @@ class ForumEnginesManager:
         return to_return_dict
 
 
+    def get_topics_list(self) -> list:
+        return [[key, value] for key, value in self.threads_topics.items()]
+    
+    def get_topics_urls_only(self) -> list[str]:
+        return [key for key, value in self.threads_topics.items()]
+    
+    def get_topics_titles_only(self) -> list[str]:
+        return [value for key, value in self.threads_topics.items()]
+
+
 class InvisionCrawler:
     """
     Specific functionalities for Invision forums
@@ -418,7 +425,7 @@ class InvisionCrawler:
         self.topics_whitelist: List[str] = ["topic"]
         self.topics_blacklist: List[str] = ["page", "#comments"]
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
-        self.topic_content_class: List[str] = []
+        self.topic_title_class: List[str] = []
         self.content_class: List[str] = ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"]  # Used for content_class
 
 class PhpBBCrawler:
@@ -433,7 +440,7 @@ class PhpBBCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
-        self.topic_content_class: List[str] = []
+        self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]
         self.content_class: List[str] = ["content_class"]                      # Used for content_class / messages
 
 class IPBoardCrawler:
@@ -448,7 +455,7 @@ class IPBoardCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["next"]                           # Used for subforums and topics pagination
-        self.topic_content_class: List[str] = []
+        self.topic_title_class: List[str] = []
         self.content_class: List[str] = ["post entry-content_class"]           # Used for content_class / messages
 
 class XenForoCrawler:
@@ -463,7 +470,7 @@ class XenForoCrawler:
         self.topics_whitelist: List[str] = ["threads"]
         self.topics_blacklist: List[str] = ["preview"]
         self.pagination: List[str] = ["pageNav-jump pageNav-jump--next"]  # Used for subforums and topics pagination
-        self.topic_content_class: List[str] = []
+        self.topic_title_class: List[str] = []
         self.content_class: List[str] = ["message-body js-selectToQuote"]        # Used for content_class / messages
 
 class UnsupportedCrawler:
@@ -478,5 +485,5 @@ class UnsupportedCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = []
-        self.topic_content_class: List[str] = []
+        self.topic_title_class: List[str] = []
         self.content_class: List[str] = []
