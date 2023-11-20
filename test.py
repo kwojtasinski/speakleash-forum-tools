@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     ### Engine: invision
     #+ config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                        # Topics to find = 18k (from dashboard) == almost all
-    #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
+    config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
 
     ### Engine: phpBB 
     #+ config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb')   # Topics to find = 21 669 (calc from website) == almost all
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     #+ config_manager = ConfigManager(dataset_url="https://www.excelforum.pl", forum_engine='phpbb')        # Topics to find = 58 414 (calc from website) == 48k found
 
     ### Engine: ipboard
-    config_manager = ConfigManager(dataset_url="https://forum.omegaklub.eu", forum_engine='ipboard')      # Disconnect for no reason
+    #+ config_manager = ConfigManager(dataset_url="https://forum.omegaklub.eu", forum_engine='ipboard')      # Disconnect for no reason
     #+ config_manager = ConfigManager(dataset_url="http://forum-kulturystyka.pl", forum_engine='ipboard')    # Topics to find = 110k ~ 119k (calc ~ dashboard)
 
     ### Engine: xenforo

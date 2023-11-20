@@ -97,7 +97,7 @@ class ConfigManager:
 
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
 
-        self._get_main_site()
+        
 
         if check_robots == True:
             logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
@@ -123,6 +123,11 @@ class ConfigManager:
         :return: Dict with settings for manifest and crawler/scraper.
         """
         parsed_url = urlparse(dataset_url)
+
+        self.main_site = dataset_url
+        if parsed_url.path:
+            self.main_site = dataset_url.replace(parsed_url.path, '')
+
         dataset_domain = parsed_url.netloc.replace('www.', '')
         if not dataset_name:
             dataset_name = f"{dataset_category.lower()}_{dataset_domain.replace('.', '_')}_corpus"
@@ -203,20 +208,20 @@ class ConfigManager:
 
         :return: Returns Tuple with robotparser and force_crawl parameter.
         """
-        robots_url = self.main_site
-        logging.info(f"* robots.txt expected url: {robots_url}/robots.txt")
+        robots_url = urljoin(self.main_site, "robots.txt")
+        logging.info(f"* robots.txt expected url: {robots_url}")
         
         rp = urllib.robotparser.RobotFileParser()
         try:
             logging.info("Parsing 'robots.txt' lines")
-            with urllib.request.urlopen(urllib.request.Request(urljoin(robots_url, "robots.txt"), headers=self.headers)) as response:
+            with urllib.request.urlopen(urllib.request.Request(robots_url, headers=self.headers)) as response:
                 try:
                     rp.parse(response.read().decode("utf-8").splitlines())
                 except Exception as e:
                     logging.error(f"Error while parsing lines -> using 'latin-1' || Error: {e}")
                     rp.parse(response.read().decode("latin-1").splitlines())
         except Exception as err:
-            rp.set_url(urljoin(robots_url, "robots.txt"))
+            rp.set_url(robots_url)
             rp.read()
             logging.info("Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
             logging.warning(f"Error while parsing lines: {err}")
@@ -249,16 +254,6 @@ class ConfigManager:
             self.settings['SITEMAPS'] = rp.site_maps()
 
         return (rp, force_crawl)
-
-
-    def _get_main_site(self):
-        """
-        Set 'self.main_site' as url without path (if found).
-        """
-        self.main_site = self.settings['DATASET_URL']
-        parsed_url = urlparse(self.settings['DATASET_URL'])
-        if parsed_url.path:
-            self.main_site = self.settings['DATASET_URL'].replace(parsed_url.path, '')
 
 
     def _check_instance(self, threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
@@ -306,12 +301,13 @@ class ConfigManager:
     def _print_settings(self) -> None:
 
         logging.info("--- Print all Settings ---")
-        to_print = ""
+        to_print = "* Crawler settings *"
         for key, value in self.settings.items():
             to_print = to_print + f"\n{key}: {value}"
 
         logging.info(to_print)
         logging.info("--- --- --- --- --- --- ---")
+        time.sleep(2)
 
 
     def init_robotstxt(self) -> urllib.robotparser.RobotFileParser:
