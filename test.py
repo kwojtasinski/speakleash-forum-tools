@@ -1,8 +1,6 @@
-from speakleash_forum_tools.config import ConfigManager
-from speakleash_forum_tools.crawler import CrawlerManager
-
 import pandas as pd
 
+from speakleash_forum_tools import ConfigManager, CrawlerManager
 
 
 # Example usage:
@@ -10,8 +8,8 @@ if __name__ == "__main__":
     print("*****************")
 
     ### Engine: invision
-    #+ config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                        # Topics to find = 18k (from dashboard) == almost all
-    config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
+    config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                        # Topics to find = 18k (from dashboard) == almost all
+    #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
 
     ### Engine: phpBB 
     #+ config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb')   # Topics to find = 21 669 (calc from website) == almost all
@@ -29,12 +27,3 @@ if __name__ == "__main__":
 
     # Use the settings from config_manager.settings as needed
     crawler = CrawlerManager(config_manager)
-
-#    forum_threads = pd.DataFrame({'URL': thread_url, 'Thread': thread_name} for thread_url, thread_name in crawler.forum_threads.items())
-#    print(forum_threads.shape)
-#    forum_threads.to_csv(f'Forum_Threads--{crawler.dataset_name}.csv', sep='\t', encoding='utf-8')
-#
-#    forum_topics = pd.DataFrame({'URL': topic_url, 'Thread': topic_name} for topic_url, topic_name in crawler.threads_topics.items())
-#    print(forum_topics.shape)
-#    forum_topics.to_csv(f'Forum_Topics--{crawler.dataset_name}.csv', sep='\t', encoding='utf-8')
-    

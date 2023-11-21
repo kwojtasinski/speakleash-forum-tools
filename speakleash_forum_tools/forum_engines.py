@@ -24,7 +24,7 @@ from typing import Optional, Union, List
 
 from bs4 import BeautifulSoup
 
-from speakleash_forum_tools.config import ConfigManager
+from speakleash_forum_tools.config_manager import ConfigManager
 from speakleash_forum_tools.utils import create_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supress warning about 'InsecureRequest' (session.get(..., verify = False))
@@ -167,7 +167,7 @@ class ForumEnginesManager:
             logging.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
             logging.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
 
-            if len(self.threads_topics):
+            if len(self.threads_topics) == 0:
                 return False
 
             return True
@@ -213,7 +213,7 @@ class ForumEnginesManager:
             forum_threads.update(threads_found)
 
             time.sleep(self.time_sleep)
-        
+
             #TODO: Pagination for THREADS
             # while len(soup.find_all())
 
@@ -403,7 +403,7 @@ class ForumEnginesManager:
         return to_return_dict
 
 
-    def get_topics_list(self) -> list:
+    def get_topics_list(self) -> list[list[str]]:
         return [[key, value] for key, value in self.threads_topics.items()]
     
     def get_topics_urls_only(self) -> list[str]:

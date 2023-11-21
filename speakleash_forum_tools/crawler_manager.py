@@ -19,8 +19,11 @@ from typing import List
 import pandas
 from usp.tree import sitemap_tree_for_homepage      # install ultimate-sitemap-parser (use this fork: pip install git+https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser )
 
-from speakleash_forum_tools.config import ConfigManager
-from speakleash_forum_tools.forums_engines import ForumEnginesManager
+from speakleash_forum_tools.config_manager import ConfigManager
+from speakleash_forum_tools.forum_engines import ForumEnginesManager
+
+logging.getLogger("usp.helpers").setLevel(logging.ERROR)        # Set logging level for 'ultimate-sitemap-parser' to only ERROR
+logging.getLogger("usp.fetch_parse").setLevel(logging.ERROR)    # Set logging level for 'ultimate-sitemap-parser' to only ERROR
 
 class CrawlerManager:
     """
@@ -63,29 +66,46 @@ class CrawlerManager:
 
     def __init__(self, config_manager: ConfigManager):
         self.files_folder = "scraper_workspace"
-        self.dataset_name = config_manager.settings['DATASET_NAME']
-        self.topics_dataset_file = f"Topics_URLs_{self.dataset_name}.csv"
-        self.topics_visited_file = f"Visited_URLs_{self.dataset_name}.csv"
+        self.config_manager = config_manager
+        self.dataset_name = self.config_manager.settings['DATASET_NAME']
+        self.topics_dataset_file = f"Topics_URLs_-_{self.dataset_name}.csv"
+        self.topics_visited_file = f"Visited_URLs_-_{self.dataset_name}.csv"
 
-        self.forum_topics, self.visited_topics = self.check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
+        self.forum_topics, self.visited_topics = self._check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
+        self.start_crawler()
+        print(self.forum_topics)
+        print(self.visited_topics)
+
+ 
+    ### Functions ###
+
+    def start_crawler(self):
+        """
+        Crawler starting function. Takes ConfigManager and create ForumEnginesManager class.
+        Start searching and parsing sitemaps (if found) or crawl forum website manually with default HTML tags/selectors.
+        Save Topics (and Topics titles optionally) as CSV files.
+
+        :return: True if found Topics (>0) or False (==0)
+        """
         if not self.forum_topics.empty:
-            logging.info(f"* CralwerManager found file with Topics...")
+            logging.info("* CralwerManager found file with Topics...")
         else:
-            forum_engine = ForumEnginesManager(config_manager = config_manager)
+            forum_engine = ForumEnginesManager(config_manager = self.config_manager)
 
-            if config_manager.settings['SITEMAPS']:
-                self.sitemaps_url = config_manager.settings['SITEMAPS']
+            if self.config_manager.settings['SITEMAPS']:
+                self.sitemaps_url = self.config_manager.settings['SITEMAPS']
             else:
-                self.sitemaps_url = config_manager.main_site
+                self.sitemaps_url = self.config_manager.main_site
 
             try:
                 logging.info("---------------------------------------------------------------------------------------------------")
-                logging.info(f"* Crawler will try to find and parse Sitemaps (using 'usp' library)...")
+                logging.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
                 forum_tree = self._tree_sitemap(self.sitemaps_url)
                 self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
                                                              whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
-                                                             robotparser = config_manager.robot_parser, force_crawl = config_manager.force_crawl)
+                                                             robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
+                self.forum_topics['Topic_Titles'] = " "
                 logging.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:
                 logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
@@ -100,8 +120,13 @@ class CrawlerManager:
 
         logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
 
+        if self.forum_topics.shape[0] > 0:
+            # Saving Topics to CSV
+            self.forum_topics.to_csv(os.path.join(self._get_dataset_folder(), self.topics_dataset_file), sep='\t', header=True, index=False, encoding='utf-8')
+            return True
+        else:
+            return False
 
-    ### Functions ###
 
     def _tree_sitemap(self, url: str):
         """
@@ -114,7 +139,7 @@ class CrawlerManager:
         start_time = time.perf_counter()
         forum_tree = sitemap_tree_for_homepage(url)
         end_time = time.perf_counter()
-        logging.info(f"Crawler // Sitemap parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
+        logging.info(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
         return forum_tree
 
     def _urls_generator(self, forum_tree, whitelist: List[str], blacklist: List[str], robotparser, force_crawl: bool = False) -> list[str]:
@@ -161,7 +186,7 @@ class CrawlerManager:
         return urls_expected
     
 
-    def check_dataset_files(self, dataset_name: str, topics_urls_filename: str = "Topics_URLs.csv", topics_visited_filename: str = "Visited_Topics_URLs.csv") -> tuple[pandas.DataFrame, pandas.DataFrame]:
+    def _check_dataset_files(self, dataset_name: str, topics_urls_filename: str = "Topics_URLs.csv", topics_visited_filename: str = "Visited_Topics_URLs.csv") -> tuple[pandas.DataFrame, pandas.DataFrame]:
         """
         Checking if exists files with:
         1) forum urls - if not create sitemaps tree -> generate urls -> save to file.
@@ -175,35 +200,44 @@ class CrawlerManager:
         :return topics_links (pandas.DataFrame): DataFrame (pandas) with urls generated from sitemaps tree or crawler engine, ['Topic_URLs', 'Topic_Titles'].
         :return visited_links (pandas.DataFrame): DataFrame (pandas) with ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'].
         """
-        dataset_folder = os.path.join(self.files_folder, self.dataset_name)
+        dataset_folder = self._get_dataset_folder()
         
         topics_links = pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles'])
         visited_links = pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
 
         if os.path.exists(dataset_folder):
-            logging.info(f"* Folder for [{dataset_name}] exists -> Checking files...")
+            logging.info(f"* Folder for [{dataset_name}] exist -> Checking files...")
             # Check if file with Topics URLs exists
             if os.path.exists(os.path.join(dataset_folder, topics_urls_filename)):
                 # Read parsed Topics URLs
-                topics_links = pandas.read_csv(os.path.join(dataset_folder, topics_urls_filename), sep = '\t', header = None, names = ['Topic_URLs', 'Topic_Titles'])
-                logging.info(f"CHECK_TOPICS_FILES // Imported DataFrame for: {dataset_name} | Shape: {topics_links.shape} | Size in memory (MB): {topics_links.memory_usage(deep=True).sum() / pow(10,6)}")
+                topics_links = pandas.read_csv(os.path.join(dataset_folder, topics_urls_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles'], index_col = None)
+                logging.info(f"Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape} | Size in memory (MB): {(topics_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
             else:
-                logging.info(f"File with Topics URLs not found... ({topics_urls_filename})")
+                logging.info(f"File with Topics URLs not found... [{topics_urls_filename}]")
 
             if os.path.exists(os.path.join(dataset_folder, topics_visited_filename)):
                 # Read scraped Visited Topics URLs
-                visited_links = pandas.read_csv(os.path.join(dataset_folder, topics_visited_filename), sep = '\t', header = None, names = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
-                logging.info(f"CHECK_TOPICS_FILES // Imported DataFrame for: {dataset_name} | Shape: {visited_links.shape} | Size in memory (MB): {visited_links.memory_usage(deep=True).sum() / pow(10,6)}")
+                visited_links = pandas.read_csv(os.path.join(dataset_folder, topics_visited_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
+                logging.info(f"Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape} | Size in memory (MB): {(visited_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
             else:
-                logging.info(f"File with Visited Topics URLs not found... ({topics_visited_filename})")
+                logging.info(f"File with Visited Topics URLs not found... [{topics_visited_filename}]")
         else:
-            logging.info(f"* Can't find folder for [{dataset_name}]... -> Create new folder...")
+            logging.warning(f"* Can't find folder for [{dataset_name}]... -> Create new folder...")
             os.makedirs(dataset_folder)
 
         if not topics_links.empty:
-            topics_links = topics_links.drop_duplicates(ignore_index=True)
+            topics_links = topics_links.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
         if not visited_links.empty:
-            visited_links = visited_links.drop_duplicates(ignore_index=True)
+            visited_links = visited_links.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
         return topics_links, visited_links
+
+
+    def _get_dataset_folder(self) -> str:
+        """
+        Joins the path for the general folder with the path for the desired dataset.
+
+        :return: Path folder for desire dataset.
+        """
+        return os.path.join(self.files_folder, self.dataset_name)
