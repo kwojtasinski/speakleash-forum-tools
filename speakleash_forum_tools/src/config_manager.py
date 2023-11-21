@@ -20,7 +20,7 @@ import urllib.robotparser
 from urllib.parse import urlparse, urljoin
 from typing import Optional, Tuple, List
 
-from speakleash_forum_tools.utils import check_for_library_updates
+from speakleash_forum_tools.src.utils import check_for_library_updates
 
 
 class ConfigManager:

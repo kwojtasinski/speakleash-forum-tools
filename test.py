@@ -8,8 +8,8 @@ if __name__ == "__main__":
     print("*****************")
 
     ### Engine: invision
-    config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                        # Topics to find = 18k (from dashboard) == almost all
-    #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
+    #+ config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                        # Topics to find = 18k (from dashboard) == almost all
+    config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')   # Topics to find = 85.5k (from dashboard) == to big for testing quality
 
     ### Engine: phpBB 
     #+ config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb')   # Topics to find = 21 669 (calc from website) == almost all
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     #+ config_manager = ConfigManager(dataset_url="http://forum-kulturystyka.pl", forum_engine='ipboard')    # Topics to find = 110k ~ 119k (calc ~ dashboard)
 
     ### Engine: xenforo
-    # Crawl-delay = 15sec (in robots.txt)
+    # https://forum.modelarstwo.info --> Crawl-delay = 15sec (in robots.txt)
     #+ config_manager = ConfigManager(dataset_url="https://forum.modelarstwo.info", forum_engine='xenforo')  # Topics to find = 16 500 (calc from website) == almost all
 
 

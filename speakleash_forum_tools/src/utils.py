@@ -10,7 +10,7 @@ from requests.adapters import HTTPAdapter           # install requests
 from urllib3.util.retry import Retry                # install urllib3
 from typing import Optional, Union
 
-from speakleash_forum_tools.__version__ import __version__
+from speakleash_forum_tools.src.__version__ import __version__
 
 
 def create_session(retry_total: Optional[Union[bool, int]] = 3, retry_backoff_factor: float = 3.0, verify: bool = False) -> requests.Session:

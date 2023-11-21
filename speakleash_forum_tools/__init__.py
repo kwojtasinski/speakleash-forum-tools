@@ -1,3 +1,3 @@
-from .config_manager import ConfigManager
-from .forum_engines import ForumEnginesManager
-from .crawler_manager import CrawlerManager
+from .src.config_manager import ConfigManager
+from .src.forum_engines import ForumEnginesManager
+from .src.crawler_manager import CrawlerManager
