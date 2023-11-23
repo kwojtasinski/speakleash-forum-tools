@@ -54,11 +54,11 @@ class ArchiveManager:
         :param mode (char): Mode to use while opening file in df.to_csv function.
         """
         urls_dataframe.to_csv(os.path.join(self.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
-        logging.info(f"Archive // Saved visited to file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
+        logging.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
 
-    def create_visited_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
+    def create_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
         """
-        Create empty file for visited URLs.
+        Create empty CSV file for given DataFrame - use DataFrame to write columns names to file.
 
         :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
         :param file_name (str): Name of CSV file.
@@ -86,6 +86,7 @@ class ArchiveManager:
         total_docs = 0
         total_chars = 0
 
+        # Re-packing chunks of archive to 1 output file
         for file_path in tqdm(data_files):
             arch_part = Reader(file_path)
             for id, record in enumerate(arch_part.stream_data(get_meta = True)):
@@ -110,12 +111,14 @@ class ArchiveManager:
             len_archive_merged = 0
             ar_merge_reader = Reader(merged_file_path)
 
+            # Check number of documents
             for id, doc in enumerate(ar_merge_reader.read_jsonl_zst(data_merge[-1], get_meta=True)):
                 len_archive_merged = id
             len_archive_merged = len_archive_merged + 1
         except Exception as e:
             logging.error(f"Archive // Error while checking merged Archive: {e}")
 
+        # Last check everything was okey
         if len_archive_merged == total_docs:
             logging.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {data_merge[-1]}")
         else:

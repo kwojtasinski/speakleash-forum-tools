@@ -77,12 +77,10 @@ class CrawlerManager:
         self.forum_topics, self.visited_topics = self._check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
         self.start_crawler()
-        print(self.forum_topics)
-        print(self.visited_topics)
         print(self.get_urls_to_scrap().shape)
 
         arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
-        arch.create_visited_empty_file(self.visited_topics, self.topics_visited_file)
+        arch.create_empty_file(self.visited_topics, self.topics_visited_file)
 
  
     ### Functions ###
@@ -143,11 +141,12 @@ class CrawlerManager:
         :return: Pandas DataFrame with columns: ['Topic_URLs','Topic_Titles'] .
         """
         if self.visited_topics.empty:
-            logging.info("Return Topics DataFrame")
+            logging.info(f"Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
             return self.forum_topics
         else:
-            logging.info("Return [Topics - Visited] URLs")
-            return self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics[self.visited_topics['Visited_flag'] == 1, 'Topic_URLs'])]
+            topics_minus_visited = self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics[self.visited_topics['Visited_flag'] == 1, 'Topic_URLs'])]
+            logging.info(f"Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
+            return topics_minus_visited
 
     def _tree_sitemap(self, url: str):
         """
