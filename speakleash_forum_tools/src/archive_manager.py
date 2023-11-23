@@ -1,67 +1,124 @@
 # archive_manager.py
 import os
 import glob
+import logging
+from typing import Tuple
+
+import pandas
 from lm_dataformat import Archive, Reader
 from tqdm import tqdm
-import logging
 
 class ArchiveManager:
-    def __init__(self, dataset_name):
+    """
+    ArchiveManager class is to manage:
+    1) creating folders:
+        1.a) temp folder - for scraper archives chunks 
+    2) functions:
+        2.a) __init__ - init folders / Archive class
+        2.b) add_to_visited_file
+        2.c) merge archives after scraping
+    3) prepare Archive (with path to specific folder)
+    """
+    def __init__(self, dataset_name: str, dataset_folder: str, visited_filename: str):
+        self.dataset_zst_filename = dataset_name + '.jsonl.zst'
         self.dataset_name = dataset_name
-        self.data_path = f'./data_{dataset_name}'
-        self.merged_archive_path = f"./archive_merged_{dataset_name}"
-        self.archive = Archive(self.data_path)
+        self.dataset_folder = dataset_folder
+        self.temp_data_path = os.path.join(self.dataset_folder, 'temp_scraper_data')
+        self.merged_archive_path = os.path.join(self.dataset_folder, 'archive_merged-JSONL_ZST')
+        
+        self.visited_filename = visited_filename            # File with visited URLs
+        # self.create_visited_empty_file()                    # Important - Create file for visited URLs
 
-    def create_archive_folder(self):
-        """Create the archive folder if it doesn't exist."""
-        if not os.path.exists(self.data_path):
-            os.makedirs(self.data_path)
-            logging.info(f"Created archive folder at {self.data_path}")
+        self._create_archive_folder()                       # Create folder for Archive (temp_scraper_data)
+        self.archive = Archive(self.temp_data_path)         # Archive - manager for temporary chunks of archives
+        
 
-    def save_visited_urls(self, urls, file_name):
+    def _create_archive_folder(self) -> None:
         """
-        Saves the visited URLs to a text file to prevent revisiting.
-
-        Parameters:
-        - urls (list): A list of URLs that have been processed.
-        - file_name (str): The name of the file to save the URLs to.
+        Create the temp archive folder -> 'temp_scraper_data' (if it doesn't exist).
         """
-        file_path = os.path.join(self.data_path, file_name)
-        with open(file_path, 'a') as file:
-            for url in urls:
-                file.write(url + "\n")
-        logging.info(f"Saved visited URLs to {file_path}")
+        try:
+            if not os.path.exists(self.temp_data_path):
+                os.makedirs(self.temp_data_path)
+                logging.info(f"Archive // Created archive folder at {self.temp_data_path}")
+        except Exception as e:
+            logging.error(f"Archive // Error while checking or creating folder for 'temp_scraper_data' -> {e}")
 
-    def merge_archives(self):
+    def add_to_visited_file(self, urls_dataframe: pandas.DataFrame, file_name: str = "Visited_.csv", head = False, mode = 'a') -> None:
+        """
+        Saves visited URLs to CSV file.
+
+        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
+        :param file_name (str): Name of CSV file.
+        :param head (bool): True / False - if use header in df.to_csv function.
+        :param mode (char): Mode to use while opening file in df.to_csv function.
+        """
+        urls_dataframe.to_csv(os.path.join(self.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
+        logging.info(f"Archive // Saved visited to file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
+
+    def create_visited_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
+        """
+        Create empty file for visited URLs.
+
+        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
+        :param file_name (str): Name of CSV file.
+        """
+        if os.path.exists(os.path.join(self.dataset_folder, file_name)):
+            logging.info("Archive // File with visited URLs exist")
+        else:
+            logging.info("Archive // File with visited URLs don't exist - creating new file")
+            self.add_to_visited_file(urls_dataframe = urls_dataframe, file_name = file_name, head = True, mode = 'w')
+
+    def merge_archives(self) -> Tuple[str, int, int]:
         """
         Merge all .zst archive files in the dataset folder into one.
 
-        Returns:
-        - A tuple containing the path to the merged archive, number of documents,
+        :return: Tuple containing the path to the merged archive, number of documents,
           and total number of characters across all documents.
         """
-        self.create_archive_folder()  # Ensure the archive folder exists
         merged_file_path = os.path.join(self.merged_archive_path, f"{self.dataset_name}.jsonl.zst")
         ar_merge = Archive(merged_file_path)
 
-        # Find all .zst files in the data directory
-        data_files = glob.glob(os.path.join(self.data_path, '*.zst'))
-        urls_visited = set()
+        # Find all .zst files in the temp_scraper_data directory
+        data_files = glob.glob(os.path.join(self.temp_data_path, '*.zst'))
+        urls_visited = []
+        urls_duplicated = 0
         total_docs = 0
         total_chars = 0
 
-        for file_path in tqdm(data_files, desc="Merging archives"):
-            with Reader(file_path) as reader:
-                for record in reader.stream_data(get_meta=True):
-                    url, data, meta = record['url'], record['text'], record['meta']
-                    if url not in urls_visited:
-                        urls_visited.add(url)
-                        ar_merge.add_data(data, meta=meta)
-                        total_docs += 1
-                        total_chars += len(data)
-
+        for file_path in tqdm(data_files):
+            arch_part = Reader(file_path)
+            for id, record in enumerate(arch_part.stream_data(get_meta = True)):
+                urel = record[1].get('url')
+                if urel not in urls_visited:
+                    urls_visited.append(urel)
+                    ar_merge.add_data(data = record[0], meta = record[1])
+                    total_docs += 1
+                    total_chars += record[1].get('length')
+                else:
+                    urls_duplicated += 1
         ar_merge.commit()
-        logging.info(f"Merged {total_docs} documents with a total of {total_chars} characters into {merged_file_path}")
-        return merged_file_path, total_docs, total_chars
+        logging.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
 
-    # Additional methods can be added here as needed for your application.
+        # Read merged archive - check if everything is okey
+        try:
+            data_merge = glob.glob(f'{merged_file_path}/*.zst')
+            data_merge.sort()
+            if not data_merge[-1]:
+                logging.error("Archive // Error! Can't find merged file -> *.jsonl.zst")
+                return "", 0, 0
+            len_archive_merged = 0
+            ar_merge_reader = Reader(merged_file_path)
+
+            for id, doc in enumerate(ar_merge_reader.read_jsonl_zst(data_merge[-1], get_meta=True)):
+                len_archive_merged = id
+            len_archive_merged = len_archive_merged + 1
+        except Exception as e:
+            logging.error(f"Archive // Error while checking merged Archive: {e}")
+
+        if len_archive_merged == total_docs:
+            logging.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {data_merge[-1]}")
+        else:
+            logging.error(f"Archive // Error! Length of merged Archive is different! -> {total_docs=} != {len_archive_merged=}")
+
+        return data_merge[-1], total_docs, total_chars

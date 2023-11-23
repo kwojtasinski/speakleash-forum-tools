@@ -403,13 +403,13 @@ class ForumEnginesManager:
         return to_return_dict
 
 
-    def get_topics_list(self) -> list[list[str]]:
+    def get_topics_list(self) -> List[List[str]]:
         return [[key, value] for key, value in self.threads_topics.items()]
     
-    def get_topics_urls_only(self) -> list[str]:
+    def get_topics_urls_only(self) -> List[str]:
         return [key for key, value in self.threads_topics.items()]
     
-    def get_topics_titles_only(self) -> list[str]:
+    def get_topics_titles_only(self) -> List[str]:
         return [value for key, value in self.threads_topics.items()]
 
 

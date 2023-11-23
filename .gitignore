@@ -4,3 +4,4 @@
 *.csv
 *.ipynb
 *.dat
+temp_scraper_data/

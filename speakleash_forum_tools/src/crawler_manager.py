@@ -9,6 +9,8 @@ Classes:
 - CrawlerManager: 
 
 Dependencies:
+- usp (ultimate-sitemap-parser) - Provides good parser for sitemap.xml files (XML, GZIP etc.). Used fork with adopted XML files packed into PHP files - https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser
+- pandas - Provides an easy-to-use DataFrame structure for simple management of collected data. (In future: polars - less memory allocated by DataFrame)
 
 """
 import os
@@ -21,6 +23,7 @@ from usp.tree import sitemap_tree_for_homepage      # install ultimate-sitemap-p
 
 from speakleash_forum_tools.src.config_manager import ConfigManager
 from speakleash_forum_tools.src.forum_engines import ForumEnginesManager
+from speakleash_forum_tools.src.archive_manager import ArchiveManager
 
 logging.getLogger("usp.helpers").setLevel(logging.ERROR)        # Set logging level for 'ultimate-sitemap-parser' to only ERROR
 logging.getLogger("usp.fetch_parse").setLevel(logging.ERROR)    # Set logging level for 'ultimate-sitemap-parser' to only ERROR
@@ -76,6 +79,10 @@ class CrawlerManager:
         self.start_crawler()
         print(self.forum_topics)
         print(self.visited_topics)
+        print(self.get_urls_to_scrap().shape)
+
+        arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
+        arch.create_visited_empty_file(self.visited_topics, self.topics_visited_file)
 
  
     ### Functions ###
@@ -106,6 +113,7 @@ class CrawlerManager:
                                                              whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
                                                              robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
                 self.forum_topics['Topic_Titles'] = " "
+                self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
                 logging.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:
                 logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
@@ -117,6 +125,7 @@ class CrawlerManager:
                 if forum_engine.crawl_forum():
                     self.forum_topics['Topic_URLs'] = forum_engine.get_topics_urls_only()
                     self.forum_topics['Topic_Titles'] = forum_engine.get_topics_titles_only()
+                    self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
         logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
 
@@ -127,6 +136,18 @@ class CrawlerManager:
         else:
             return False
 
+    def get_urls_to_scrap(self) -> pandas.DataFrame:
+        """
+        Get URLs to crap (topics titles if found).
+
+        :return: Pandas DataFrame with columns: ['Topic_URLs','Topic_Titles'] .
+        """
+        if self.visited_topics.empty:
+            logging.info("Return Topics DataFrame")
+            return self.forum_topics
+        else:
+            logging.info("Return [Topics - Visited] URLs")
+            return self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics[self.visited_topics['Visited_flag'] == 1, 'Topic_URLs'])]
 
     def _tree_sitemap(self, url: str):
         """
