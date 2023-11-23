@@ -1,17 +1,37 @@
 """
 Crawler Manager Module
 
-This module offers a comprehensive solution for crawling various types of forum software. 
-It includes the CrawlerManager class, which orchestrates the process of extracting threads and topics from forum pages. 
-The manager utilizes specific crawler classes tailored to different forum engines, ensuring efficient and targeted data extraction.
+This module provides a CrawlerManager class designed to efficiently manage the 
+crawling process on various forum websites. It leverages sitemaps when available 
+or falls back to manual crawling using the ForumEnginesManager class, depending on 
+the forum's structure and available data.
+
+The CrawlerManager class orchestrates the crawling operation by integrating the 
+configuration settings from the ConfigManager class, processing the forum website, 
+and returning a comprehensive list of topic URLs. 
+
+The module is designed to offer flexibility, scalability, and robustness in crawling operations across 
+diverse forum platforms, ensuring a streamlined and effective data extraction process.
+
+Key Features:
+- Configurable crawling strategy utilizing both sitemaps and manual crawling techniques.
+- Integration with ForumEnginesManager for enhanced crawling capabilities across different forum engines.
+- Adherence to forum's scraping policies through the use of urllib.robotparser.
+- Efficient data handling and processing, optimized for performance and memory usage.
+- Advanced filtering mechanisms, including whitelist and blacklist options, for precise crawling control.
+- Capability to handle pagination and extract content based on specified HTML tags and selectors.
 
 Classes:
-- CrawlerManager: 
+- CrawlerManager: The primary class responsible for managing the crawling process. It initializes with 
+  settings from ConfigManager, employs advanced crawling techniques, and outputs a list of topic URLs. 
+  The class effectively manages the crawling workflow, ensuring compliance with scraping policies and 
+  efficient data extraction.
 
 Dependencies:
 - usp (ultimate-sitemap-parser) - Provides good parser for sitemap.xml files (XML, GZIP etc.). Used fork with adopted XML files packed into PHP files - https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser
 - pandas - Provides an easy-to-use DataFrame structure for simple management of collected data. (In future: polars - less memory allocated by DataFrame)
-
+- logging - For tracking and logging the crawling process.
+- requests, urllib, BeautifulSoup -  For web requests and HTML parsing.
 """
 import os
 import time
@@ -76,8 +96,8 @@ class CrawlerManager:
 
         self.forum_topics, self.visited_topics = self._check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
-        self.start_crawler()
-        print(self.get_urls_to_scrap().shape)
+        # self.start_crawler()
+        # topics_to_scrap = self.get_urls_to_scrap()
 
         arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
         arch.create_empty_file(self.visited_topics, self.topics_visited_file)
@@ -110,7 +130,7 @@ class CrawlerManager:
                 self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
                                                              whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
                                                              robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
-                self.forum_topics['Topic_Titles'] = " "
+                self.forum_topics['Topic_Titles'] = ""
                 self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
                 logging.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:

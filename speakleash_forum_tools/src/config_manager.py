@@ -1,16 +1,31 @@
 """
 Config Manager Module
 
-This module provides a configuration management class for a forum crawling and scraping tool.
+This module defines the `ConfigManager` class, which serves as a centralized manager for configuring and managing settings for a forum crawler and scraper. 
+The `ConfigManager` class offers a comprehensive setup for various parameters required for crawling and scraping forums. 
+It supports various forum engines, adheres to `robots.txt` policies, and handles command-line arguments for flexibility and customization.
 
 Classes:
-- ConfigManager: Initializes with default values for crawler, scraper and manifest informations, 
-can parse command-line arguments, and checks the site's robots.txt file to ensure compliance with scraping policies.
+- ConfigManager: Manages the configuration for forum crawling and scraping. 
+It initializes with defaults or user-provided settings and handles `robots.txt` parsing.
+
+Functions:
+- _initialize_settings: Initializes the configuration settings for the crawler.
+- _parse_arguments: Parses command-line arguments if enabled.
+- _check_robots_txt: Checks and parses the forum's `robots.txt` file.
+- _check_instance: Validates the instance types of provided arguments.
+- _print_settings: Prints the current configuration settings.
+- init_robotstxt: Initializes a dummy `robots.txt` parser.
+
+Usage:
+The `ConfigManager` class is instantiated with various settings like forum URL, engine type, crawling and scraping settings. 
+It can be used standalone or in combination with other modules in the `speakleash-forum-tools` package for efficient forum data scraping.
 
 Dependencies:
-- logging: Provides logging worflow.
-- argparse: Provides parser for command-line arguments.
-- urllib: Provides RobotFileParser and functions to parse and join urls.
+- logging: Used for logging information, warnings, and errors.
+- argparse: Parses command-line arguments if enabled.
+- urllib: Provides functionality for URL parsing and handling `robots.txt`.
+- speakleash_forum_tools.src.utils: Optional utility functions, e.g., for checking library updates.
 """
 import time
 import logging

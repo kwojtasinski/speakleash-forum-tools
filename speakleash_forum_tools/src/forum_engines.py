@@ -1,24 +1,41 @@
 """
 Forum Engines Manager Module
 
-This module offers a comprehensive solution for crawling various types of forum software. 
-It includes the ForumEnginesManager class, which orchestrates the process of extracting threads and topics from forum pages. 
-The manager utilizes specific crawler classes tailored to different forum engines, ensuring efficient and targeted data extraction.
+This module contains the ForumEnginesManager class, which is designed to facilitate the crawling of different types of forum engines. 
+It orchestrates the process of identifying and navigating through various forum structures to extract threads, topics, and handle pagination effectively.
+The ForumEnginesManager class dynamically selects an appropriate crawler based on the forum engine type (e.g., Invision, phpBB, IPBoard, XenForo) 
+and configures it with specific CSS selectors and criteria to ensure accurate data extraction. This flexibility allows it to adapt to the unique characteristics of each forum engine.
 
 Classes:
-- ForumEnginesManager: Manages the crawling process across different forum engine types, 
-handling the extraction of threads and topics from forum pages. It respects site-specific scraping policies 
-as defined in the 'robots.txt' file and supports customizable filtering for thread and topic URLs.
+- ForumEnginesManager: Manages crawling processes across various forum engine types. 
+    Utilizes specialized crawler classes for each forum type and manages thread and topic extraction, as well as pagination handling.
+
+Key Functionalities:
+- Dynamically selects and configures a specific crawler class based on the forum engine type.
+- Extracts thread and topic URLs and titles from forum pages.
+- Handles pagination to ensure complete data extraction from forum threads.
+- Integrates with a ConfigManager class to obtain necessary configurations and settings.
+- Utilizes urllib's robotparser to respect the forum's robots.txt rules, ensuring ethical crawling practices.
+
+Usage:
+The ForumEnginesManager class requires an instance of ConfigManager for initialization. 
+It uses the settings from ConfigManager to determine the forum engine type and other essential parameters. 
+After initialization, the crawl_forum method can be called to start the crawling process.
 
 Dependencies:
-- bs4 (BeautifulSoup): Aids in parsing HTML content of forum pages for data extraction.
-
+- requests: For making HTTP requests to forums.
+- BeautifulSoup: For parsing HTML and extracting data.
+- urllib: For handling URLs and complying with robots.txt rules.
+- pandas: For data manipulation and handling data structures.
+- logging: For logging the crawling process.
+- tqdm: For displaying progress in terminal during long-running operations.
+- ConfigManager: Custom class providing necessary configuration settings.
 """
 import time
 import logging
 import requests
-# import dataclasses
 import urllib3
+# import dataclasses
 from urllib.parse import urljoin
 from typing import Optional, Union, List
 

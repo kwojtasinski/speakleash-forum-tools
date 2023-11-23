@@ -1,4 +1,33 @@
-# archive_manager.py
+"""
+Archive Manager Module
+
+This module offers the ArchiveManager class, which is essential for managing data archiving in 
+the context of a forum crawling and scraping tool. The class is specifically designed to handle 
+various file management tasks related to the archival process of scraped data, including the 
+creation of folders, merging of data chunks, and maintaining records of visited URLs.
+
+The ArchiveManager class aims to streamline the archiving aspect of the web scraping process, 
+providing a robust and scalable solution for handling large volumes of data in an organized manner.
+
+Key Features:
+- Efficient management of archive directories, ensuring organized storage of scraped data.
+- Creation and maintenance of visited URLs file, aiding in tracking the progress of the scraping process.
+- Merging functionality for combining multiple archive chunks into a single, consolidated file.
+- Support for creating empty template files for storing scraped data, enhancing data management efficiency.
+- Utilization of the 'lm-dataformat' library for handling JSONL.ZST file format, ensuring high compression and fast access.
+
+Classes:
+- ArchiveManager: The primary class in this module, responsible for various archiving operations. 
+  It initializes with dataset names and paths, manages temporary and merged archive folders, and provides 
+  functionalities for adding URLs to visited files, merging archives, and creating empty files for future data storage.
+
+Dependencies:
+- pandas: Used for data manipulation and CSV file operations.
+- os, glob, tqdm: Utilized for file system interactions and progress tracking.
+- logging: For logging and monitoring the archiving process.
+- lm-dataformat: For handling and managing archive formats such as JSONL.ZST .
+
+"""
 import os
 import glob
 import logging
@@ -46,7 +75,7 @@ class ArchiveManager:
 
     def add_to_visited_file(self, urls_dataframe: pandas.DataFrame, file_name: str = "Visited_.csv", head = False, mode = 'a') -> None:
         """
-        Saves visited URLs to CSV file.
+        Append visited URLs to CSV file (in dataset folder).
 
         :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
         :param file_name (str): Name of CSV file.
@@ -58,7 +87,8 @@ class ArchiveManager:
 
     def create_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
         """
-        Create empty CSV file for given DataFrame - use DataFrame to write columns names to file.
+        Create empty CSV file (in dataset folder) for given DataFrame 
+        - use DataFrame to write columns names to file.
 
         :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
         :param file_name (str): Name of CSV file.
