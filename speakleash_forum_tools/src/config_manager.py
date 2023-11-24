@@ -41,7 +41,6 @@ from speakleash_forum_tools.src.utils import check_for_library_updates
 class ConfigManager:
     """
     A configuration manager for setting up and managing settings for a forum crawler.
-
     """
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
