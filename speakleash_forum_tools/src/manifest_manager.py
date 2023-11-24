@@ -70,7 +70,7 @@ class ManifestManager:
                             "license": config_manager.settings["DATASET_LICENSE"], 
                             "category": config_manager.settings["DATASET_CATEGORY"], 
                             "language": "pl", 
-                            "file_size" : str(file_size),
+                            "file_size": file_size,
                             "sources": [{"name": config_manager.settings["DATASET_NAME"], 
                                         "url": config_manager.settings["DATASET_URL"], 
                                         "license": config_manager.settings["DATASET_LICENSE"]}], 
