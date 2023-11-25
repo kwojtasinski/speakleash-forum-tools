@@ -84,9 +84,7 @@ class CrawlerManager:
         e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
     - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
         e.g. ["content_class"] (for phpBB engine)
-
     """
-
     def __init__(self, config_manager: ConfigManager):
         self.files_folder = "scraper_workspace"
         self.config_manager = config_manager
@@ -96,13 +94,15 @@ class CrawlerManager:
 
         self.forum_topics, self.visited_topics = self._check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
+        self.forum_engine = ForumEnginesManager(config_manager = self.config_manager)
+
         # self.start_crawler()
         # topics_to_scrap = self.get_urls_to_scrap()
 
-        arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
-        arch.create_empty_file(self.visited_topics, self.topics_visited_file)
+        # arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
+        # arch.create_empty_file(self.visited_topics, self.topics_visited_file)
 
- 
+
     ### Functions ###
 
     def start_crawler(self):
@@ -116,7 +116,6 @@ class CrawlerManager:
         if not self.forum_topics.empty:
             logging.info("* CralwerManager found file with Topics...")
         else:
-            forum_engine = ForumEnginesManager(config_manager = self.config_manager)
 
             if self.config_manager.settings['SITEMAPS']:
                 self.sitemaps_url = self.config_manager.settings['SITEMAPS']
@@ -128,7 +127,7 @@ class CrawlerManager:
                 logging.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
                 forum_tree = self._tree_sitemap(self.sitemaps_url)
                 self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
-                                                             whitelist = forum_engine.topics_whitelist, blacklist = forum_engine.topics_blacklist, 
+                                                             whitelist = self.forum_engine.topics_whitelist, blacklist = self.forum_engine.topics_blacklist, 
                                                              robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
                 self.forum_topics['Topic_Titles'] = ""
                 self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
@@ -138,11 +137,11 @@ class CrawlerManager:
 
             if self.forum_topics.empty:
                 logging.warning("---------------------------------------------------------------------------------------------------")
-                logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {forum_engine.engine_type}")
+                logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {self.forum_engine.engine_type}")
 
-                if forum_engine.crawl_forum():
-                    self.forum_topics['Topic_URLs'] = forum_engine.get_topics_urls_only()
-                    self.forum_topics['Topic_Titles'] = forum_engine.get_topics_titles_only()
+                if self.forum_engine.crawl_forum():
+                    self.forum_topics['Topic_URLs'] = self.forum_engine.get_topics_urls_only()
+                    self.forum_topics['Topic_Titles'] = self.forum_engine.get_topics_titles_only()
                     self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
         logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")

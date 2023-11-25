@@ -9,10 +9,10 @@ if __name__ == "__main__":
 
     ### Engine: invision
     #+ config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                           # Topics to find = 18k (from dashboard) == almost all
-    config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')          # Topics to find = 85.5k (from dashboard) == to big for testing manual crawler
+    #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')          # Topics to find = 85.5k (from dashboard) == to big for testing manual crawler
 
     ### Engine: phpBB 
-    #+ config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb')      # Topics to find = 21 669 (calc from website) == almost all
+    config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb')      # Topics to find = 21 669 (calc from website) == almost all
     #+ config_manager = ConfigManager(dataset_url="https://www.gry-planszowe.pl", forum_engine='phpbb')         # Topics to find = 24 596 (calc from website) == almost all
     #+ config_manager = ConfigManager(dataset_url="https://www.excelforum.pl", forum_engine='phpbb')            # Topics to find = 58 414 (calc from website) == 48k found
 

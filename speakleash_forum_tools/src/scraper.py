@@ -14,10 +14,17 @@ import time
 import logging
 import requests
 import urllib3
+from urllib.parse import urljoin
 from typing import Optional, Union, List
 from multiprocessing import set_start_method, Pool, current_process
 
+import psutil
 from bs4 import BeautifulSoup
+from speakleash_forum_tools.src.config_manager import ConfigManager
+from speakleash_forum_tools.src.crawler_manager import CrawlerManager
+from speakleash_forum_tools.src.forum_engines import ForumEnginesManager
+from speakleash_forum_tools.src.archive_manager import ArchiveManager, Archive
+from speakleash_forum_tools.src.utils import create_session
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supress warning about 'InsecureRequest' (session.get(..., verify = False))
 
@@ -26,44 +33,64 @@ class Scraper:
     """
     Scraper Class
     """
+    def __init__(self, config_manager: ConfigManager, crawler_manager: CrawlerManager):
 
-    def __init__(self) -> None:
-        pass
+        self.config = config_manager
+        self.crawler = crawler_manager
+
+        arch = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file)
+        arch.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
+        self.archive = arch.archive
+        
+        self.text_separator = '\n'
 
 
-    def get_item_text(url: str) -> str:
+    def initialize_worker(self, visited_urls: list[str]) -> None:
         """
-        Extracts text data from URL (from urls_generator).
+        Initialize the workers (parser and session) for multithreading performace.
 
-        Parameters
-        ----------
-        url : str
-            URL to get text data.
-
-        Returns
-        -------
-        text : str
-            Text data.
-
+        :param visited_urls (list[str]): All visited URLs.
         """
+        if psutil.LINUX == True:
+            logging.info(f"INIT_WORKER // Initializing worker... | CPU Core: {psutil.Process().cpu_num()}")
+        else:
+            logging.info("INIT_WORKER // Initializing worker... 1 of many! We Wanna Work!")
 
+        global session
+        session = create_session()
+
+        global all_visited_urls
+        all_visited_urls = visited_urls
+
+        if psutil.LINUX == True:
+            logging.info(f"INIT_WORKER // Created: requests.Session | CPU Core: {psutil.Process().cpu_num()}")
+        else:
+            logging.info("INIT_WORKER // Created: requests.Session - 1 of many")
+
+
+    def _get_item_text(self, url: str) -> str:
+        """
+        Extracts text data from URL.
+
+        :param url (str): URL to scrapget text data.
+
+        :return: Text data from given URL.
+        """
         # Variables
         response = None
         text = ''
-        headers = {
-    		'User-Agent': 'Speakleash-v0.1',
-    		"Accept-Encoding": "gzip, deflate",
-    		"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    		"Connection": "keep-alive"
-    	}
+
+        # headers = self.config.headers
+        # headers = {
+	    #     'User-Agent': 'Speakleash',
+	    #     "Accept-Encoding": "gzip, deflate",
+	    #     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+	    #     "Connection": "keep-alive"
+	    # }
 
         # Try to connect to a given URL
         try:
-            response = session.get(url, 
-                                   timeout=60, 
-                                   headers=headers)
-
-        # Handle connection error
+            response = session.get(url, timeout=60, headers = self.config.headers)
         except Exception as e:
             logging.error(f"GET_TEXT // Error downloading -> {url} : {str(e)}") 
 
@@ -72,51 +99,69 @@ class Scraper:
 
             # Check if the file exceeds 15 MB
             if len(response.content)>15000000:
-                logging.warning(f"GET_TEXT // File too big")
+                logging.warning("GET_TEXT // File too big")
                 return text
 
             # Beautiful Soup to extract data from HTML
             try:
                 soup = BeautifulSoup(response.content, "html.parser")
-                comment_blocks = soup.find_all("div", {'data-role': "commentContent"})
+                for content_class in self.crawler.forum_engine.content_class:
+                    html_tag, attr_name_value = content_class.split(" >> ")
+                    attr_name, attr_value = attr_name_value.split(" :: ")
+                    comment_blocks = soup.find_all(html_tag, {attr_name: attr_value})
+                    if comment_blocks:
+                        break
+                
+                if not comment_blocks:
+                    logging.warning("GET_TEXT // Comment_Blocks EMPTY !!!!!!!!!")
+
             except Exception as e:
                 logging.error(f"GET_TEXT // ERROR BeautifulSoup: {str(e)}")
+            
             # Get text data from posts on page and add it to the string
             for comment in comment_blocks:
-                text += comment.text.strip()+"\n"
+                text += comment.text.strip() + self.text_separator
+
+            # Sleep for - we dont wanna burn servers
+            time.sleep(self.config.settings["TIME_SLEEP"])
 
             #Process next pages
             try:            
-                # Sleep for convinience
-                time.sleep(TIME_SLEEP)
-
                 # Iterate through all of the pages in given topic/thread
-                while len(soup.find_all('li', {'class': 'ipsPagination_next'})) > 0 and \
-                      len(soup.find_all('li', class_='ipsPagination_next ipsPagination_inactive')) == 0:
 
-                    next_page_btns = soup.find_all('li', {'class': 'ipsPagination_next'})
-                    next_page_url = next_page_btns[0].find('a')['href']
+                # while len(soup.find_all('li', {'class': 'ipsPagination_next'})) > 0:
+                while self.crawler.forum_engine._get_next_page_link(url_now = url, soup = soup):
 
-                    if url in next_page_url:
-                        logging.debug(f"GET_TEXT // Found new page: {next_page_url.replace(url,'')} --> for topic: {url}")
+                    next_page_link = self.crawler.forum_engine._get_next_page_link(url_now = url, soup = soup)
+                    url = urljoin(self.config.settings["DATASET_URL"], next_page_link) if next_page_link else False
 
-                        next_page_response = session.get(next_page_url, timeout=60, headers=headers)
+                    if url and self.config.settings["DATASET_URL"] in next_page_link:
+                        logging.debug(f"GET_TEXT // Found new page: {next_page_link.replace(url,'')} --> for topic: {url}")
+
+                        next_page_response = session.get(next_page_link, timeout=60, headers = self.config.headers)
                         soup = BeautifulSoup(next_page_response.content, "html.parser")
 
-                        comment_blocks = soup.find_all("div", {'data-role': "commentContent"})
+                        for content_class in self.crawler.forum_engine.content_class:
+                            html_tag, attr_name_value = content_class.split(" >> ")
+                            attr_name, attr_value = attr_name_value.split(" :: ")
+                            comment_blocks = soup.find_all(html_tag, {attr_name: attr_value})
+                            if comment_blocks:
+                                break
+                
+                        if not comment_blocks:
+                            logging.warning("GET_TEXT // Comment_Blocks EMPTY !!!!!!!!!")
 
                         for comment in comment_blocks:
-                            text += comment.text.strip() + "\n"
-                        #for i in page_nav_results:
-                        #    text += i.text.strip()+"\n"
-                        time.sleep(TIME_SLEEP)
+                            text += comment.text.strip() + self.text_separator
+
+                        time.sleep(self.config.settings["TIME_SLEEP"])
                     else:
-                        logging.debug(f"GET_TEXT // Topic URL is NOT in next_page_url: {next_page_url=}")
+                        logging.debug(f"GET_TEXT // Topic URL is NOT in next_page_url: {next_page_link=}")
                         break
 
             # Handle next page error       
             except Exception as e:
-                logging.error(f"GET_TEXT // ERROR processing next page: {next_page_url} : {str(e)}")           
+                logging.error(f"GET_TEXT // ERROR processing next page: {next_page_link} : {str(e)}")           
 
         # Connection not successful - reponse empty
         elif not response:    
@@ -129,113 +174,57 @@ class Scraper:
         return text 
 
 
-    def process_item(url: str) -> tuple[str, dict]:
+    def _process_item(self, url: str) -> tuple[str, dict]:
         """
         Extract from URL -> cleaning -> simple metadata.
 
-        Parameters
-        ----------
-        url : str
-            URL to get text data.
+        :param url (str): URL to get text data.
 
-        Returns
-        -------
-        text : str
-            Text data (stripped).
-
-        meta : dict
-            Dict with simple metadata -> {'url' : url, 'length': len(txt_strip)} or {'url' : url, 'skip': 'error' / 'robots.txt' / 'visited'}.
+        :return text (str): Text data (stripped).
+        :return meta (dict): Dict with simple metadata -> {'url' : url, 'length': len(txt_strip)} or {'url' : url, 'skip': 'error' / 'visited'}.
         """
-
-        global rp
         global all_visited_urls
         meta: dict = {'url' : url}
         txt: str = ''
         txt_strip: str = ''
 
+        # For DEBUG only
         if psutil.LINUX == True:
             logging.debug(f"PROCESS_ITEM // Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()} | Processing URL: {url}")
         else:
             logging.debug(f"PROCESS_ITEM // Proc ID: {psutil.Process().pid} | Processing URL: {url}")
 
         if url not in all_visited_urls:
-            if rp.can_fetch('*', url):
-                try:
-                    txt = get_item_text(url)
-                    meta = {'url' : url, 'skip': 'error'}
-                    if txt:
-                        txt_strip = txt.strip()
-                        meta = {'url' : url, 'length': len(txt_strip)}
-                except Exception as e:
-                    logging.error(f"PROCESS_ITEM // Error processing item -> {url} : {str(e)}")
-                    meta = {'url' : url, 'skip': 'error'}
-            else:
-                logging.info(f"PROCESS_ITEM // Robots not allowed: {url}")
-                meta = {'url' : url, 'skip': 'robots.txt'}
+            try:
+                txt = self._get_item_text(url)
+                meta = {'url' : url, 'skip': 'error'}
+                if txt:
+                    txt_strip = txt.strip()
+                    meta = {'url' : url, 'characters': len(txt_strip)}
+            except Exception as e:
+                logging.error(f"PROCESS_ITEM // Error processing item -> {url} : {str(e)}")
+                meta = {'url' : url, 'skip': 'error'}
         else:
             logging.info(f"PROCESS_ITEM // URL already visited -> skipping: {url}")
             meta = {'url' : url, 'skip': 'visited'}
 
-        # Only on LINUX
-        # logging.info(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: {psutil.Process().cpu_num()}")    
+        # For DEBUG only
+        if psutil.LINUX == True:
+            logging.info(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: {psutil.Process().cpu_num()}")
+        else:
+            logging.info(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: ...")
+
         return txt_strip, meta
 
-
-    def initialize_worker(url: str, visited_urls: list[str]) -> None:
-        """
-        Initialize the workers (parser and session) for multithreading performace.
-
-        Parameters
-        ----------
-        url : str
-            Domain URL.
-
-        visited_urls : list[str]
-            All visited URLs - can be empty or passed from file.
-        """
-        if psutil.LINUX == True:
-            logging.info(f'INIT_WORKER // Initializing worker... | CPU Core: {psutil.Process().cpu_num()}')
-        else:
-            logging.info(f'INIT_WORKER // Initializing worker... 1 of many! We Wanna Work!')
-
-        global rp
-        global session
-        global all_visited_urls
-        all_visited_urls = visited_urls
-
-        rp = urllib.robotparser.RobotFileParser()    
-        with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'Python'})) as response:
-            rp.parse(response.read().decode("utf-8").splitlines())
-
-        session = requests.Session()
-        retry = Retry(total=3, backoff_factor=3)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-
-        if psutil.LINUX == True:
-            logging.info(f"INIT_WORKER // Created: RobotFileParser & requests.Session | CPU Core: {psutil.Process().cpu_num()}")
-        else:
-            logging.info(f"INIT_WORKER // Created: RobotFileParser & requests.Session - 1 of many")
-
-
-    def scrap_txt_mp(ar: Archive) -> int:
+    def _scrap_txt_mp(self, ar: Archive) -> int:
         """
         Extract text data from URL using multiprocessing. 
         Init -> MP Pool -> Extract -> Save URLs and update Archive.
 
-        Parameters
-        ----------
-        ar : Archive
-            Archive class from library lm_dataformat.
+        :param ar (Archive): Archive class from library lm_dataformat.
+        :param fresh_start (bool): Determine if file with visited urls exist (False) or not (True).
 
-        fresh_start : bool
-            Determine if file with visited urls exist (False) or not (True).
-
-        Returns
-        -------
-        total_docs : int
-            Total number of added documents.
+        :return total_docs (int): Total number of added documents.
         """
 
         total_docs: int = (visited_links['visited'].sum() - visited_links['skip'].sum())

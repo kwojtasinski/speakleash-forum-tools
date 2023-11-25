@@ -443,7 +443,7 @@ class InvisionCrawler:
         self.topics_blacklist: List[str] = ["page", "#comments"]
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
         self.topic_title_class: List[str] = []
-        self.content_class: List[str] = ["ipsType_normal ipsType_richText ipsPadding_bottom ipsContained"]  # Used for content_class
+        self.content_class: List[str] = ["div >> data-role :: commentContent"]  # Used for content_class
 
 class PhpBBCrawler:
     """
@@ -458,7 +458,7 @@ class PhpBBCrawler:
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
         self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]
-        self.content_class: List[str] = ["content_class"]                      # Used for content_class / messages
+        self.content_class: List[str] = ["div >> class :: content"]                      # Used for content_class / messages
 
 class IPBoardCrawler:
     """
