@@ -442,7 +442,7 @@ class InvisionCrawler:
         self.topics_whitelist: List[str] = ["topic"]
         self.topics_blacklist: List[str] = ["page", "#comments"]
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
-        self.topic_title_class: List[str] = []
+        self.topic_title_class: List[str] = ["h1 >> class :: ipsType_pageTitle ipsContained_container"]
         self.content_class: List[str] = ["div >> data-role :: commentContent"]  # Used for content_class
 
 class PhpBBCrawler:

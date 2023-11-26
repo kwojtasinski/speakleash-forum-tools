@@ -39,3 +39,42 @@
 
 
 
+global headers
+headers = self.config.headers
+
+global forum_content_class
+forum_content_class = self.crawler.forum_engine.content_class
+
+global forum_topic_title_class
+forum_topic_title_class = self.crawler.forum_engine.topic_title_class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

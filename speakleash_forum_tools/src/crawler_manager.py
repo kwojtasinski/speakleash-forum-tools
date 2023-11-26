@@ -99,13 +99,10 @@ class CrawlerManager:
         # self.start_crawler()
         # topics_to_scrap = self.get_urls_to_scrap()
 
-        # arch = ArchiveManager(self.dataset_name, self._get_dataset_folder(), self.topics_visited_file)
-        # arch.create_empty_file(self.visited_topics, self.topics_visited_file)
-
 
     ### Functions ###
 
-    def start_crawler(self):
+    def start_crawler(self) -> bool:
         """
         Crawler starting function. Takes ConfigManager and create ForumEnginesManager class.
         Start searching and parsing sitemaps (if found) or crawl forum website manually with default HTML tags/selectors.

@@ -11,14 +11,16 @@ Dependencies:
 
 """
 import time
+import datetime
 import logging
 import requests
 import urllib3
 from urllib.parse import urljoin
-from typing import Optional, Union, List
+from typing import Optional, Union, Tuple, List
 from multiprocessing import set_start_method, Pool, current_process
 
 import psutil
+import pandas
 from bs4 import BeautifulSoup
 from speakleash_forum_tools.src.config_manager import ConfigManager
 from speakleash_forum_tools.src.crawler_manager import CrawlerManager
@@ -38,14 +40,28 @@ class Scraper:
         self.config = config_manager
         self.crawler = crawler_manager
 
-        arch = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file)
-        arch.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
-        self.archive = arch.archive
+        self.arch = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file)
+        self.arch.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
+        self.archive = self.arch.archive
         
         self.text_separator = '\n'
 
 
-    def initialize_worker(self, visited_urls: list[str]) -> None:
+    ### Functions ###
+
+    def start_scraper(self) -> int:
+        try:
+            total_docs: int = self._scrap_txt_mp(ar = self.archive,
+                                             topics_minus_visited = self.crawler.get_urls_to_scrap(),
+                                             visited_topics = self.crawler.visited_topics)
+        except Exception as e:
+            logging.error(f"Error in SCRAPER -> Error: {e}")
+        
+        logging.info(f"*** Scraper found documents: {total_docs}")
+        return total_docs
+
+    @staticmethod
+    def _initialize_worker(visited_urls: list[str]) -> None:
         """
         Initialize the workers (parser and session) for multithreading performace.
 
@@ -67,18 +83,18 @@ class Scraper:
         else:
             logging.info("INIT_WORKER // Created: requests.Session - 1 of many")
 
-
-    def _get_item_text(self, url: str) -> str:
+    def _get_item_text(self, url: str) -> Tuple[str, str]:
         """
         Extracts text data from URL.
 
         :param url (str): URL to scrapget text data.
 
-        :return: Text data from given URL.
+        :return: Tuple with 1) text - text data from given URL, 2) topic_title - topic title searched in specific HTML tags.
         """
         # Variables
         response = None
         text = ''
+        topic_title = ''
 
         # headers = self.config.headers
         # headers = {
@@ -87,10 +103,13 @@ class Scraper:
 	    #     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 	    #     "Connection": "keep-alive"
 	    # }
+        global headers
+        global forum_content_class
+        global forum_topic_title_class
 
         # Try to connect to a given URL
         try:
-            response = session.get(url, timeout=60, headers = self.config.headers)
+            response = session.get(url, timeout=60, headers = headers)
         except Exception as e:
             logging.error(f"GET_TEXT // Error downloading -> {url} : {str(e)}") 
 
@@ -105,7 +124,7 @@ class Scraper:
             # Beautiful Soup to extract data from HTML
             try:
                 soup = BeautifulSoup(response.content, "html.parser")
-                for content_class in self.crawler.forum_engine.content_class:
+                for content_class in forum_content_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
                     comment_blocks = soup.find_all(html_tag, {attr_name: attr_value})
@@ -116,11 +135,32 @@ class Scraper:
                     logging.warning("GET_TEXT // Comment_Blocks EMPTY !!!!!!!!!")
 
             except Exception as e:
-                logging.error(f"GET_TEXT // ERROR BeautifulSoup: {str(e)}")
+                logging.error(f"GET_TEXT // ERROR BeautifulSoup (topic-text): {str(e)}")
             
             # Get text data from posts on page and add it to the string
             for comment in comment_blocks:
                 text += comment.text.strip() + self.text_separator
+
+            # Get Topic-Title as "forum_topic" (only from 1-st page)
+            try:
+                soup = BeautifulSoup(response.content, "html.parser")
+                for content_class in forum_topic_title_class:
+                    html_tag, attr_name_value = content_class.split(" >> ")
+                    attr_name, attr_value = attr_name_value.split(" :: ")
+                    topic_title = soup.find(html_tag, {attr_name: attr_value})
+                    if topic_title:
+                        break
+                
+                if topic_title:
+                    topic_title = topic_title.text.strip()
+
+                if not topic_title:
+                    logging.warning("GET_TEXT // Topic_Title EMPTY !!!!!!!!!")
+                    topic_title = ""
+
+            except Exception as e:
+                logging.error(f"GET_TEXT // ERROR BeautifulSoup (topic-title): {str(e)}")
+
 
             # Sleep for - we dont wanna burn servers
             time.sleep(self.config.settings["TIME_SLEEP"])
@@ -128,7 +168,6 @@ class Scraper:
             #Process next pages
             try:            
                 # Iterate through all of the pages in given topic/thread
-
                 # while len(soup.find_all('li', {'class': 'ipsPagination_next'})) > 0:
                 while self.crawler.forum_engine._get_next_page_link(url_now = url, soup = soup):
 
@@ -141,7 +180,7 @@ class Scraper:
                         next_page_response = session.get(next_page_link, timeout=60, headers = self.config.headers)
                         soup = BeautifulSoup(next_page_response.content, "html.parser")
 
-                        for content_class in self.crawler.forum_engine.content_class:
+                        for content_class in forum_content_class:
                             html_tag, attr_name_value = content_class.split(" >> ")
                             attr_name, attr_value = attr_name_value.split(" :: ")
                             comment_blocks = soup.find_all(html_tag, {attr_name: attr_value})
@@ -171,8 +210,7 @@ class Scraper:
         elif not response.ok:
             logging.error(f"GET_TEXT // Error response -> {url}\nResponse: {response.status_code}")
 
-        return text 
-
+        return text, topic_title
 
     def _process_item(self, url: str) -> tuple[str, dict]:
         """
@@ -196,17 +234,17 @@ class Scraper:
 
         if url not in all_visited_urls:
             try:
-                txt = self._get_item_text(url)
-                meta = {'url' : url, 'skip': 'error'}
+                txt, topic_title = self._get_item_text(url)
+                meta = {'url' : url, 'topic_title': topic_title, 'skip': 'error'}
                 if txt:
                     txt_strip = txt.strip()
-                    meta = {'url' : url, 'characters': len(txt_strip)}
+                    meta = {'url' : url, 'topic_title': topic_title, 'characters': len(txt_strip)}
             except Exception as e:
                 logging.error(f"PROCESS_ITEM // Error processing item -> {url} : {str(e)}")
-                meta = {'url' : url, 'skip': 'error'}
+                meta = {'url' : url, 'topic_title': topic_title, 'skip': 'error'}
         else:
             logging.info(f"PROCESS_ITEM // URL already visited -> skipping: {url}")
-            meta = {'url' : url, 'skip': 'visited'}
+            meta = {'url' : url, 'topic_title': topic_title, 'skip': 'visited'}
 
         # For DEBUG only
         if psutil.LINUX == True:
@@ -216,7 +254,7 @@ class Scraper:
 
         return txt_strip, meta
 
-    def _scrap_txt_mp(self, ar: Archive) -> int:
+    def _scrap_txt_mp(self, ar: Archive, topics_minus_visited: pandas.DataFrame, visited_topics: pandas.DataFrame) -> int:
         """
         Extract text data from URL using multiprocessing. 
         Init -> MP Pool -> Extract -> Save URLs and update Archive.
@@ -225,59 +263,67 @@ class Scraper:
         :param fresh_start (bool): Determine if file with visited urls exist (False) or not (True).
 
         :return total_docs (int): Total number of added documents.
+
+        ..note:
+        - forum_topics -> columns = ['Topic_URLs', 'Topic_Titles']
+        - visited_topics -> columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag']
         """
+        set_start_method("spawn")
 
-        total_docs: int = (visited_links['visited'].sum() - visited_links['skip'].sum())
-        total_visited: int = visited_links['visited'].sum()
+        total_docs: int = (visited_topics['Visited_flag'].sum() - visited_topics['Skip_flag'].sum())
+        total_visited: int = visited_topics['Visited_flag'].sum()
+        urls_left_number: int = topics_minus_visited.shape[0]
 
-
-        if len_urls_left and len_urls_left != 0:
-            logging.info(f"SCRAPE // Start scraping... in 5 sec")
+        if urls_left_number and urls_left_number != 0:
+            logging.info("*** Scraper will start in 5 sec ...")
             time.sleep(5)
 
             # Temp values, Placeholders will be updated in postprocessing
             added: int = 0
             skipped: int = 0                 # Will be checked if visited -> in pool
             total: int = 0
-            visited_urls_dataframe = pandas.DataFrame(columns=['urls','visited','skip'])
+            visited_urls_dataframe = pandas.DataFrame(columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
             time_loop_start = time.time()
             total_checkpoint = 0
             added_checkpoint = 0
             skipped_checkpoint = 0
+            PROCESSES = self.config.settings["PROCESSES"]
 
             # Create and configure the process pool
-            logging.info(f"SCRAPE // Starting Multiprocessing Pool...")
-            with Pool(initializer = initialize_worker,
-                      initargs = [DATASET_URL, visited_links['urls'].values.tolist()],
+            logging.info("* Starting Multiprocessing Pool...")
+            with Pool(initializer = self._initialize_worker,
+                      initargs = [visited_topics['Topic_URLs'].values.tolist()],
                       processes = PROCESSES) as pool:
 
                 time_loop_start = time.time()
 
                 try:
                     # Issue tasks to the process pool for remaining URLs
-                    for txt, meta in pool.imap(func = process_item, 
-                                                    iterable = filtered_forum_urls['urls'],
-                                                    chunksize = 1) :
-                                                    # ,total = len_urls_left, leave = False, ):
+                    for txt, meta in pool.imap(func = self._process_item, 
+                                                    iterable = topics_minus_visited['Topic_URLs'],
+                                                    chunksize = 1):
+                                                    # ,total = urls_left_number, leave = False, ):
                         total += 1
                         flag_visited: int = 0
                         flag_skip: int = 0
                         visit_temp: dict = {}
 
-                        if txt and len(txt) > MIN_LEN_TXT:
+                        if txt and len(txt) > self.config.settings["MIN_LEN_TXT"]:
                             total_docs += 1
+                            if not meta["topic_title"]:
+                                meta["topic_title"] = "x"
                             ar.add_data(txt, meta = meta)
                             added += 1
                             flag_visited = 1
                             flag_skip = 0
-                            visit_temp = {'urls': [meta.get('url')], 'visited': [flag_visited], 'skip': [flag_skip]}
+                            visit_temp = {'Topic_URLs': [meta.get('url')], 'Topic_Titles': meta.get('topic_title'), 'Visited_flag': [flag_visited], 'Skip_flag': [flag_skip]}
                             # logging.info(f"SCRAPE // OK --- Processed: {total} | Added counter: {added} | Len(txt): {meta.get('length')} | Added URL: {meta.get('url')}")
                         else:
                             skipped += 1
                             flag_visited = 1
                             flag_skip = 1
                             if meta.get('skip') != 'visited':
-                                visit_temp = {'urls': [meta.get('url')], 'visited': [flag_visited], 'skip': [flag_skip]}
+                                visit_temp = {'Topic_URLs': [meta.get('url')], 'Topic_Titles': meta.get('topic_title'), 'Visited_flag': [flag_visited], 'Skip_flag': [flag_skip]}
                             # logging.info(f"SCRAPE // Short or empty TXT --- Processed: {total} | Skipped counter: {skipped} | Why skipped: {meta.get('skip')} | Skipped URL: {meta.get('url')}")
 
                         if visit_temp:
@@ -288,7 +334,7 @@ class Scraper:
                             logging.error(f"*** ERROR *** Ups, something went wrong --> pool got: {len(pool._pool)} workers, should be {PROCESSES}")
 
                         # Save visited URLs to file
-                        if total % SAVE_STATE == 0 and added > 0:
+                        if total % self.config.settings["SAVE_STATE"] == 0 and added > 0:
                             logging.info(f"SCRAPE // Scraping info --> Checked URLs: {total_visited + total} | Added docs: {total_docs}")
                             logging.info(f"SCRAPE // This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
                             logging.info(f"SCRAPE // Since last checkpoint --> Checked URLs: {total-total_checkpoint} | Added: {added-added_checkpoint}  | Skipped: {skipped-skipped_checkpoint}")
@@ -297,8 +343,8 @@ class Scraper:
                             skipped_checkpoint = skipped
 
                             # logging.info(f"SCRAPE // Saving visited URLs to file, visited: {visited_urls_dataframe.shape[0]}")
-                            save_visited_dataframe(visited_urls_dataframe)
-                            visited_urls_dataframe = pandas.DataFrame(columns=['urls','visited','skip'])
+                            self.arch.add_to_visited_file(visited_urls_dataframe)
+                            visited_urls_dataframe = pandas.DataFrame(columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
 
                             ar.commit()
                             logging.info(f"SCRAPE + SAVE // Commiting to Archive, total commited = {added}")
@@ -306,13 +352,13 @@ class Scraper:
 
                             time_loop_end = time.time()
                             time_since_start = time_loop_end - time_loop_start + 1e-9
-                            remains_iter = len_urls_left - total
+                            remains_iter = urls_left_number - total
                             time_per_iter = time_since_start / (total+1)
                             time_eta = remains_iter * time_per_iter
                             logging.info(f"SCRAPE + TIMING // *** Time since start: {(time_since_start / 60):.2f} min | {(time_since_start / 3600):.2f} h | {(time_since_start / 86400):.2f} days")
                             logging.info(f"SCRAPE + TIMING // *** Performance: {(total / time_since_start):.2f} ops/sec  |  Processes = {len(pool._pool)} / {PROCESSES}")
                             logging.info(f"SCRAPE + TIMING // *** ETA: {(time_eta / 60):.2f} min | {(time_eta / 3600):.2f} hours | {(time_eta / 86400):.2f} days --> {(datetime.datetime.today() + datetime.timedelta(seconds=time_eta)).strftime('%Y-%m-%d %H:%M (%A)')}")
-                            logging.info(f"SCRAPE // ------------------------------------------------------------------- ")
+                            logging.info("SCRAPE // ------------------------------------------------------------------- ")
 
                 except Exception as e:
                     logging.error(f"*** ERROR *** --> {str(e)}")
@@ -321,9 +367,9 @@ class Scraper:
 
                 # Saving Archive and visited URLs
                 ar.commit()
-                save_visited_dataframe(visited_urls_dataframe)
-                logging.info(f"SCRAPE // Saved URLs and Archive - DONE!")
+                self.arch.add_to_visited_file(visited_urls_dataframe)
+                logging.info("SCRAPE // Saved URLs and Archive - DONE!")
         else:
-            logging.info(f"SCRAPE // Nothing to scrape...")
+            logging.info("SCRAPE // Nothing to scrape...")
 
         return total_docs

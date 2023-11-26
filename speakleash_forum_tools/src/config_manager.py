@@ -45,7 +45,7 @@ class ConfigManager:
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
-                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
+                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.DEBUG,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
                  topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []):
         """
