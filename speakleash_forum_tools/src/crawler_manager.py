@@ -86,8 +86,9 @@ class CrawlerManager:
         e.g. ["content_class"] (for phpBB engine)
     """
     def __init__(self, config_manager: ConfigManager):
-        self.files_folder = "scraper_workspace"
         self.config_manager = config_manager
+        self.files_folder = self.config_manager.files_folder
+        self.dataset_folder = self.config_manager.dataset_folder
         self.dataset_name = self.config_manager.settings['DATASET_NAME']
         self.topics_dataset_file = f"Topics_URLs_-_{self.dataset_name}.csv"
         self.topics_visited_file = f"Visited_URLs_-_{self.dataset_name}.csv"
@@ -157,11 +158,11 @@ class CrawlerManager:
         :return: Pandas DataFrame with columns: ['Topic_URLs','Topic_Titles'] .
         """
         if self.visited_topics.empty:
-            logging.info(f"Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
+            logging.info(f"* Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
             return self.forum_topics
         else:
-            topics_minus_visited = self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics[self.visited_topics['Visited_flag'] == 1, 'Topic_URLs'])]
-            logging.info(f"Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
+            topics_minus_visited = self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics['Topic_URLs'].where(self.visited_topics['Visited_flag'] == 1))]
+            logging.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
             return topics_minus_visited
 
     def _tree_sitemap(self, url: str):
@@ -272,8 +273,8 @@ class CrawlerManager:
 
     def _get_dataset_folder(self) -> str:
         """
-        Joins the path for the general folder with the path for the desired dataset.
+        Return path to directory for the dataset.
 
         :return: Path folder for desire dataset.
         """
-        return os.path.join(self.files_folder, self.dataset_name)
+        return self.dataset_folder

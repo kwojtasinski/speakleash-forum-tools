@@ -13,14 +13,14 @@ Dependencies:
 import time
 import datetime
 import logging
-import requests
 import urllib3
 from urllib.parse import urljoin
-from typing import Optional, Union, Tuple, List
+from typing import Tuple
 from multiprocessing import set_start_method, Pool, current_process
 
 import psutil
 import pandas
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 from speakleash_forum_tools.src.config_manager import ConfigManager
 from speakleash_forum_tools.src.crawler_manager import CrawlerManager
@@ -40,9 +40,9 @@ class Scraper:
         self.config = config_manager
         self.crawler = crawler_manager
 
-        self.arch = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file)
-        self.arch.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
-        self.archive = self.arch.archive
+        self.arch_manager = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file)
+        self.arch_manager.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
+        self.archive = self.arch_manager.archive
         
         self.text_separator = '\n'
 
@@ -50,18 +50,22 @@ class Scraper:
     ### Functions ###
 
     def start_scraper(self) -> int:
+        total_docs: int = 0
         try:
             total_docs: int = self._scrap_txt_mp(ar = self.archive,
                                              topics_minus_visited = self.crawler.get_urls_to_scrap(),
                                              visited_topics = self.crawler.visited_topics)
         except Exception as e:
             logging.error(f"Error in SCRAPER -> Error: {e}")
-        
+            total_docs: int = 0
+
         logging.info(f"*** Scraper found documents: {total_docs}")
         return total_docs
 
     @staticmethod
-    def _initialize_worker(visited_urls: list[str]) -> None:
+    def _initialize_worker(visited_urls: list[str], headers_in: dict, content_class_in: list[str],
+                           topic_title_class_in: list[str], text_separator_in: str,
+                           pagination_in: list[str], time_sleep_in: float, dataset_url_in: str) -> None:
         """
         Initialize the workers (parser and session) for multithreading performace.
 
@@ -78,12 +82,34 @@ class Scraper:
         global all_visited_urls
         all_visited_urls = visited_urls
 
+        global headers
+        headers = headers_in
+
+        global forum_content_class
+        forum_content_class = content_class_in
+
+        global forum_topic_title_class
+        forum_topic_title_class = topic_title_class_in
+
+        global text_separator
+        text_separator = text_separator_in
+
+        global pagination
+        pagination = pagination_in
+
+        global time_sleep
+        time_sleep = time_sleep_in
+
+        global DATASET_URL
+        DATASET_URL = dataset_url_in
+
         if psutil.LINUX == True:
             logging.info(f"INIT_WORKER // Created: requests.Session | CPU Core: {psutil.Process().cpu_num()}")
         else:
             logging.info("INIT_WORKER // Created: requests.Session - 1 of many")
 
-    def _get_item_text(self, url: str) -> Tuple[str, str]:
+    @staticmethod
+    def _get_item_text(url: str) -> Tuple[str, str]:
         """
         Extracts text data from URL.
 
@@ -92,20 +118,17 @@ class Scraper:
         :return: Tuple with 1) text - text data from given URL, 2) topic_title - topic title searched in specific HTML tags.
         """
         # Variables
-        response = None
-        text = ''
-        topic_title = ''
-
-        # headers = self.config.headers
-        # headers = {
-	    #     'User-Agent': 'Speakleash',
-	    #     "Accept-Encoding": "gzip, deflate",
-	    #     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-	    #     "Connection": "keep-alive"
-	    # }
         global headers
         global forum_content_class
         global forum_topic_title_class
+        global text_separator
+        global pagination
+        global time_sleep
+        global DATASET_URL
+
+        response = None
+        text = ''
+        topic_title = ''
 
         # Try to connect to a given URL
         try:
@@ -139,7 +162,7 @@ class Scraper:
             
             # Get text data from posts on page and add it to the string
             for comment in comment_blocks:
-                text += comment.text.strip() + self.text_separator
+                text += comment.text.strip() + text_separator
 
             # Get Topic-Title as "forum_topic" (only from 1-st page)
             try:
@@ -163,21 +186,21 @@ class Scraper:
 
 
             # Sleep for - we dont wanna burn servers
-            time.sleep(self.config.settings["TIME_SLEEP"])
+            time.sleep(time_sleep)
 
             #Process next pages
             try:            
                 # Iterate through all of the pages in given topic/thread
                 # while len(soup.find_all('li', {'class': 'ipsPagination_next'})) > 0:
-                while self.crawler.forum_engine._get_next_page_link(url_now = url, soup = soup):
+                while ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination):
 
-                    next_page_link = self.crawler.forum_engine._get_next_page_link(url_now = url, soup = soup)
-                    url = urljoin(self.config.settings["DATASET_URL"], next_page_link) if next_page_link else False
+                    next_page_link = ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination)
+                    url = urljoin(DATASET_URL, next_page_link) if next_page_link else False
 
-                    if url and self.config.settings["DATASET_URL"] in next_page_link:
+                    if url and DATASET_URL in next_page_link:
                         logging.debug(f"GET_TEXT // Found new page: {next_page_link.replace(url,'')} --> for topic: {url}")
 
-                        next_page_response = session.get(next_page_link, timeout=60, headers = self.config.headers)
+                        next_page_response = session.get(next_page_link, timeout=60, headers = headers)
                         soup = BeautifulSoup(next_page_response.content, "html.parser")
 
                         for content_class in forum_content_class:
@@ -191,9 +214,9 @@ class Scraper:
                             logging.warning("GET_TEXT // Comment_Blocks EMPTY !!!!!!!!!")
 
                         for comment in comment_blocks:
-                            text += comment.text.strip() + self.text_separator
+                            text += comment.text.strip() + text_separator
 
-                        time.sleep(self.config.settings["TIME_SLEEP"])
+                        time.sleep(time_sleep)
                     else:
                         logging.debug(f"GET_TEXT // Topic URL is NOT in next_page_url: {next_page_link=}")
                         break
@@ -212,7 +235,8 @@ class Scraper:
 
         return text, topic_title
 
-    def _process_item(self, url: str) -> tuple[str, dict]:
+    @staticmethod
+    def _process_item(url: str) -> tuple[str, dict]:
         """
         Extract from URL -> cleaning -> simple metadata.
 
@@ -234,7 +258,7 @@ class Scraper:
 
         if url not in all_visited_urls:
             try:
-                txt, topic_title = self._get_item_text(url)
+                txt, topic_title = Scraper._get_item_text(url)
                 meta = {'url' : url, 'topic_title': topic_title, 'skip': 'error'}
                 if txt:
                     txt_strip = txt.strip()
@@ -292,17 +316,24 @@ class Scraper:
             # Create and configure the process pool
             logging.info("* Starting Multiprocessing Pool...")
             with Pool(initializer = self._initialize_worker,
-                      initargs = [visited_topics['Topic_URLs'].values.tolist()],
+                      initargs = [visited_topics['Topic_URLs'],
+                                  self.config.headers,
+                                  self.crawler.forum_engine.content_class,
+                                  self.crawler.forum_engine.topic_title_class,
+                                  self.text_separator,
+                                  self.crawler.forum_engine.pagination,
+                                  self.config.settings["TIME_SLEEP"],
+                                  self.config.settings["DATASET_URL"]],
                       processes = PROCESSES) as pool:
 
                 time_loop_start = time.time()
 
                 try:
                     # Issue tasks to the process pool for remaining URLs
-                    for txt, meta in pool.imap(func = self._process_item, 
+                    for txt, meta in tqdm(pool.imap(func = self._process_item, 
                                                     iterable = topics_minus_visited['Topic_URLs'],
-                                                    chunksize = 1):
-                                                    # ,total = urls_left_number, leave = False, ):
+                                                    chunksize = 1)
+                                                    , total = urls_left_number, leave = False, smoothing = 0.02):
                         total += 1
                         flag_visited: int = 0
                         flag_skip: int = 0
@@ -311,7 +342,7 @@ class Scraper:
                         if txt and len(txt) > self.config.settings["MIN_LEN_TXT"]:
                             total_docs += 1
                             if not meta["topic_title"]:
-                                meta["topic_title"] = "x"
+                                meta.update({"topic_title": "x"})
                             ar.add_data(txt, meta = meta)
                             added += 1
                             flag_visited = 1
@@ -320,7 +351,7 @@ class Scraper:
                             # logging.info(f"SCRAPE // OK --- Processed: {total} | Added counter: {added} | Len(txt): {meta.get('length')} | Added URL: {meta.get('url')}")
                         else:
                             skipped += 1
-                            flag_visited = 1
+                            flag_visited = 0
                             flag_skip = 1
                             if meta.get('skip') != 'visited':
                                 visit_temp = {'Topic_URLs': [meta.get('url')], 'Topic_Titles': meta.get('topic_title'), 'Visited_flag': [flag_visited], 'Skip_flag': [flag_skip]}
@@ -343,7 +374,7 @@ class Scraper:
                             skipped_checkpoint = skipped
 
                             # logging.info(f"SCRAPE // Saving visited URLs to file, visited: {visited_urls_dataframe.shape[0]}")
-                            self.arch.add_to_visited_file(visited_urls_dataframe)
+                            self.arch_manager.add_to_visited_file(visited_urls_dataframe)
                             visited_urls_dataframe = pandas.DataFrame(columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
 
                             ar.commit()
@@ -367,7 +398,7 @@ class Scraper:
 
                 # Saving Archive and visited URLs
                 ar.commit()
-                self.arch.add_to_visited_file(visited_urls_dataframe)
+                self.arch_manager.add_to_visited_file(visited_urls_dataframe)
                 logging.info("SCRAPE // Saved URLs and Archive - DONE!")
         else:
             logging.info("SCRAPE // Nothing to scrape...")

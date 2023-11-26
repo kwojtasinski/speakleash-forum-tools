@@ -49,6 +49,15 @@ class ArchiveManager:
     3) prepare Archive (with path to specific folder)
     """
     def __init__(self, dataset_name: str, dataset_folder: str, visited_filename: str):
+        """
+        ArchiveManager class provides simple functions for managing Archive and everything around this topic.
+        Import important names and paths, process some more paths and prepare Archive class.
+        Provides function "merge_archives" to merge all archive chunks.
+
+        :param dataset_name (str): Dataset name.
+        :param dataset_folder (str): Path to dataset directory.
+        :param visited_filename (str): File name with visited URLs.
+        """
         self.dataset_zst_filename = dataset_name + '.jsonl.zst'
         self.dataset_name = dataset_name
         self.dataset_folder = dataset_folder
@@ -96,9 +105,9 @@ class ArchiveManager:
         :param file_name (str): Name of CSV file.
         """
         if os.path.exists(os.path.join(self.dataset_folder, file_name)):
-            logging.info("Archive // File with visited URLs exist")
+            logging.debug("Archive // File with visited URLs exist")
         else:
-            logging.info("Archive // File with visited URLs don't exist - creating new file")
+            logging.debug("Archive // File with visited URLs don't exist - creating new file")
             self.add_to_visited_file(urls_dataframe = urls_dataframe, file_name = file_name, head = True, mode = 'w')
 
     def merge_archives(self) -> Tuple[str, int, int]:
@@ -127,7 +136,7 @@ class ArchiveManager:
                     urls_visited.append(urel)
                     ar_merge.add_data(data = record[0], meta = record[1])
                     total_docs += 1
-                    total_chars += record[1].get('length')
+                    total_chars += record[1].get('characters')
                 else:
                     urls_duplicated += 1
         ar_merge.commit()

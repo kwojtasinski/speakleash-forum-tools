@@ -27,25 +27,30 @@ import logging
 from speakleash_forum_tools.src.config_manager import ConfigManager
 
 class ManifestManager:
-    def __init__(self, config_manager: ConfigManager, merged_archive_path: str, total_docs: int = 0):
+    def __init__(self, config_manager: ConfigManager, directory_to_save: str, total_docs: int = 0, total_characters: int = 0):
         """
         Using ConfigManager settings prepare manifest with placeholders.
 
         :param config_manager (ConfigManager): ConfigManager class with settings.
-        :param merged_archive_path (str): Path to directory with merged dataset archive (*.jsonl.zst).
+        :param directory_to_save (str): Path to directory where to save *.manifest .
         :param total_docs (int): Number of documents in merged (*.jsonl.zst) dataset file.
+        :param total_characters (int): Number of characters in merged (*.jsonl.zst) dataset file.
         """
-        if self.create_manifest(config_manager, merged_archive_path, total_docs):
+        self.manifest_created: bool = self.create_manifest(config_manager, directory_to_save, total_docs, total_characters)
+        if self.manifest_created:
             logging.info("* Manifest created (in directory with merged archive)")
 
 
-    def create_manifest(self, config_manager: ConfigManager, merged_archive_path: str, total_docs: int = 0) -> bool:
+    ### Functions ###
+
+    def create_manifest(self, config_manager: ConfigManager, directory_to_save: str, total_docs: int = 0, total_characters: int = 0) -> bool:
         """
         Prepare manifest for dataset.
 
         :param config_manager (ConfigManager): ConfigManager class with settings.
-        :param merged_archive_path (str): Path to directory with merged dataset archive (*.jsonl.zst).
+        :param directory_to_save (str): Path to directory where to save *.manifest .
         :param total_docs (int): Number of documents in merged (*.jsonl.zst) dataset file.
+        :param total_characters (int): Number of characters in merged (*.jsonl.zst) dataset file.
 
         :return: True if everything was OK and manifest is created, or False if something was wrong.
         """
@@ -53,7 +58,6 @@ class ManifestManager:
 
         # Placeholder values, will be updated in postprocessing
         file_size = 0
-        total_characters = 0
         total_sentences = 0
         total_words = 0
         total_verbs = 0
@@ -75,11 +79,11 @@ class ManifestManager:
                                         "url": config_manager.settings["DATASET_URL"], 
                                         "license": config_manager.settings["DATASET_LICENSE"]}], 
                                         "stats": {"documents": total_docs, 
+                                            "characters": total_characters, 
                                             "sentences": total_sentences, 
                                             "words" : total_words, 
                                             "nouns" : total_nouns, 
                                             "verbs" : total_verbs, 
-                                            "characters": total_characters, 
                                             "punctuations" : total_punctuations, 
                                             "symbols" : total_symbols, 
                                             "stopwords": total_stopwords, 
@@ -92,7 +96,7 @@ class ManifestManager:
                 return e
 
             try:
-                with open(os.path.join(merged_archive_path, manifest_filename), 'w') as mf:
+                with open(os.path.join(directory_to_save, manifest_filename), 'w') as mf:
                     mf.write(json_manifest)
             except Exception as e:
                 logging.error(f"Manifest // Error while writing json file: {str(e)}")

@@ -27,6 +27,7 @@ Dependencies:
 - urllib: Provides functionality for URL parsing and handling `robots.txt`.
 - speakleash_forum_tools.src.utils: Optional utility functions, e.g., for checking library updates.
 """
+import os
 import time
 import logging
 import argparse
@@ -45,7 +46,7 @@ class ConfigManager:
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
-                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.DEBUG,
+                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
                  topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []):
         """
@@ -84,12 +85,8 @@ class ConfigManager:
         - headers (dict): Headers e.g. 'User-Agent' of crawler. 
         - force_crawl (bool): Indicates whether robots.txt is taken into account (e.g. robots.txt is parsed wrongly)
         """
-        # logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO, filename = f'{self.settings['DATASET_NAME']}_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log', encoding='utf-8')
-        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
 
         #TODO: check_for_library_updates()
-
-        logging.info("+++++++++++++++++++++++++++++++++++++++++++")
 
         self._check_instance(threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
                             topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_title_class = topic_title_class, content_class = content_class)
@@ -102,6 +99,16 @@ class ConfigManager:
         if arg_parser == True:
             self._parse_arguments()
 
+        self.files_folder = "scraper_workspace"
+        self.dataset_folder = os.path.join(self.files_folder, self.settings['DATASET_NAME'])
+        if not os.path.exists(self.dataset_folder):
+            os.makedirs(self.dataset_folder)
+
+        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = logging.INFO, filename = os.path.join(self.dataset_folder, f'logs_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log'), encoding='utf-8')
+        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
+
+        logging.info("+++++++++++++++++++++++++++++++++++++++++++")
+
         self.headers = {
 	        'User-Agent': 'Speakleash',
 	        "Accept-Encoding": "gzip, deflate",
@@ -110,8 +117,6 @@ class ConfigManager:
 	    }
 
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
-
-        
 
         if check_robots == True:
             logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")

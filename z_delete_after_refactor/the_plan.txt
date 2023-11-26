@@ -48,9 +48,17 @@ forum_content_class = self.crawler.forum_engine.content_class
 global forum_topic_title_class
 forum_topic_title_class = self.crawler.forum_engine.topic_title_class
 
+global text_separator
+text_separator = self.text_separator
 
+global pagination
+pagination = self.crawler.forum_engine.pagination
 
+global time_sleep
+time_sleep = self.config.settings["TIME_SLEEP"]
 
+global DATASET_URL
+DATASET_URL = self.config.settings["DATASET_URL"]
 
 
 

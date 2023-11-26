@@ -256,8 +256,8 @@ class ForumEnginesManager:
         logging.info(f"--> Topics found in thread: {len(thread_topics)}")
 
         # Find the link to the next page
-        while self._get_next_page_link(url_now, soup):
-            next_page_link = self._get_next_page_link(url_now, soup)
+        while self._get_next_page_link(url_now, soup, self.pagination):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
@@ -305,8 +305,8 @@ class ForumEnginesManager:
         logging.info(f"Found topics: {len(thread_topics)}")
         return thread_topics
 
-
-    def _get_next_page_link(self, url_now: str, soup: BeautifulSoup) -> Union[str, bool]:
+    @staticmethod
+    def _get_next_page_link(url_now: str, soup: BeautifulSoup, pagination: list[str]) -> Union[str, bool]:
         """
         Finds the link to the next page using pagination.
         Default HTML tags to search = ['li', 'a', 'div']
@@ -316,7 +316,7 @@ class ForumEnginesManager:
 
         :return: Returns string with link to next page or False if did not find any.
         """
-        for pagination_class in self.pagination:
+        for pagination_class in pagination:
             next_button = []
             html_tag = ['li', 'a', 'div']
             next_button = soup.find(html_tag, {'class': {pagination_class}})
