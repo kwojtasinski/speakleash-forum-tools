@@ -1,14 +1,17 @@
 """
 Scraper Module
 
-<>
+This module provides a comprehensive solution for web scraping activities, particularly focused on forum data extraction. It encapsulates the scraping logic within the Scraper class, which utilizes multiprocessing to efficiently handle large-scale data scraping tasks.
 
 Classes:
-
-Functions:
+- Scraper: A class designed to manage the scraping process. It utilizes multiprocessing techniques to optimize the scraping of text data from web pages, handling the complexities of concurrent data processing.
 
 Dependencies:
+- multiprocessing: Utilized for creating a pool of processes to enable concurrent scraping of data.
+- Pool from multiprocessing: Used for managing a pool of worker processes.
+- Other relevant libraries (e.g., requests, BeautifulSoup) as needed for web scraping.
 
+The Scraper class within this module is responsible for setting up a multiprocessing environment to concurrently process multiple web scraping tasks. It includes methods for initializing the scraping process, handling individual scraping tasks, and managing the results. The class is designed to be adaptable to various scraping requirements, with a focus on efficiency and robust error handling.
 """
 import time
 import datetime
@@ -33,7 +36,21 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)     # Supres
 
 class Scraper:
     """
-    Scraper Class
+    A class responsible for managing the scraping process of forum data using multiprocessing.
+
+    Attributes:
+        config (ConfigManager): An instance of ConfigManager providing configuration settings.
+        crawler (CrawlerManager): An instance of CrawlerManager for managing crawling operations.
+        arch_manager (ArchiveManager): Manages the archive of scraped data.
+        archive (Archive): An instance of Archive to store scraped data.
+        text_separator (str): Separator used in text extraction.
+
+    Methods:
+        start_scraper: Initiates the scraping process and returns the total number of documents scraped.
+        _initialize_worker: Static method to initialize worker processes for multiprocessing.
+        _get_item_text: Static method to extract text and metadata from a given URL.
+        _process_item: Static method to process individual items (URLs) and return text and metadata.
+        _scrap_txt_mp: Orchestrates the scraping process using multiprocessing.
     """
     def __init__(self, config_manager: ConfigManager, crawler_manager: CrawlerManager):
 
@@ -50,6 +67,11 @@ class Scraper:
     ### Functions ###
 
     def start_scraper(self) -> int:
+        """
+        Initiates the scraping process and returns the total number of documents scraped.
+
+        :return: Total number of documents successfully scraped.
+        """
         total_docs: int = 0
         try:
             total_docs: int = self._scrap_txt_mp(ar = self.archive,
@@ -284,7 +306,8 @@ class Scraper:
         Init -> MP Pool -> Extract -> Save URLs and update Archive.
 
         :param ar (Archive): Archive class from library lm_dataformat.
-        :param fresh_start (bool): Determine if file with visited urls exist (False) or not (True).
+        :param topics_minus_visited (pandas.DataFrame): DataFrame with URLs only for scraping.
+        :param visited_topics (pandas.DataFrame): DataFrame with visited URLs.
 
         :return total_docs (int): Total number of added documents.
 
@@ -351,7 +374,7 @@ class Scraper:
                             # logging.info(f"SCRAPE // OK --- Processed: {total} | Added counter: {added} | Len(txt): {meta.get('length')} | Added URL: {meta.get('url')}")
                         else:
                             skipped += 1
-                            flag_visited = 0
+                            flag_visited = 1
                             flag_skip = 1
                             if meta.get('skip') != 'visited':
                                 visit_temp = {'Topic_URLs': [meta.get('url')], 'Topic_Titles': meta.get('topic_title'), 'Visited_flag': [flag_visited], 'Skip_flag': [flag_skip]}

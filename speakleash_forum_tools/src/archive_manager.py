@@ -31,6 +31,7 @@ Dependencies:
 import os
 import glob
 import logging
+import shutil
 from typing import Tuple
 
 import pandas
@@ -117,8 +118,11 @@ class ArchiveManager:
         :return: Tuple containing the path to the merged archive, number of documents,
           and total number of characters across all documents.
         """
+        logging.info("* Preparing Archive for chunks merging...")
+
         merged_file_path = os.path.join(self.merged_archive_path, f"{self.dataset_name}.jsonl.zst")
-        ar_merge = Archive(merged_file_path)
+        merged_file_dir_temp = os.path.join(self.merged_archive_path, "temp")
+        ar_merge = Archive(merged_file_dir_temp)
 
         # Find all .zst files in the temp_scraper_data directory
         data_files = glob.glob(os.path.join(self.temp_data_path, '*.zst'))
@@ -140,17 +144,18 @@ class ArchiveManager:
                 else:
                     urls_duplicated += 1
         ar_merge.commit()
+        del (ar_merge)          # Delete Archive class to avoid errors with directories
         logging.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
 
         # Read merged archive - check if everything is okey
         try:
-            data_merge = glob.glob(f'{merged_file_path}/*.zst')
+            data_merge = glob.glob(f'{merged_file_dir_temp}/*.zst')
             data_merge.sort()
             if not data_merge[-1]:
                 logging.error("Archive // Error! Can't find merged file -> *.jsonl.zst")
                 return "", 0, 0
             len_archive_merged = 0
-            ar_merge_reader = Reader(merged_file_path)
+            ar_merge_reader = Reader(merged_file_dir_temp)
 
             # Check number of documents
             for id, doc in enumerate(ar_merge_reader.read_jsonl_zst(data_merge[-1], get_meta=True)):
@@ -161,8 +166,18 @@ class ArchiveManager:
 
         # Last check everything was okey
         if len_archive_merged == total_docs:
-            logging.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {data_merge[-1]}")
+            logging.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {merged_file_path}")
         else:
             logging.error(f"Archive // Error! Length of merged Archive is different! -> {total_docs=} != {len_archive_merged=}")
 
-        return data_merge[-1], total_docs, total_chars
+        try:
+            os.rename(data_merge[-1], merged_file_path)
+        except Exception as e:
+            logging.error(f"Archive // Error while renaming: {e}")
+
+        try:
+            shutil.rmtree(merged_file_dir_temp)
+        except Exception as e:
+            logging.error(f"Archive // Error while removedirs: {e}")
+
+        return merged_file_path, total_docs, total_chars

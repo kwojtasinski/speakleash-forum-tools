@@ -161,6 +161,7 @@ class CrawlerManager:
             logging.info(f"* Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
             return self.forum_topics
         else:
+            #TODO: Zastanowic sie nad:: where(self.visited_topics['Visited_flag'] == 1 & self.visited_topics['Skip_flag'] == 0)     # Skip "1" jest z roznych powodow, np. error albo brak tekstu / Skip "0" to strona na ktorej byl tekst
             topics_minus_visited = self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics['Topic_URLs'].where(self.visited_topics['Visited_flag'] == 1))]
             logging.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
             return topics_minus_visited

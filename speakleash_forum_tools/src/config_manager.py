@@ -104,6 +104,7 @@ class ConfigManager:
         if not os.path.exists(self.dataset_folder):
             os.makedirs(self.dataset_folder)
 
+        #TODO: Use 1-st - logging.basicConfig - for logging to file in dataset directory
         # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = logging.INFO, filename = os.path.join(self.dataset_folder, f'logs_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log'), encoding='utf-8')
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
 
