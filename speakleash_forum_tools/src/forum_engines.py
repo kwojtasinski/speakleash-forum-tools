@@ -214,6 +214,24 @@ class ForumEnginesManager:
         soup = BeautifulSoup(response.content, 'html.parser')
 
         forum_threads = self._get_forum_threads_extract(soup)
+
+        #TODO: Pagination for THREADS
+        # Find the link to the next page
+        while self._get_next_page_link(url_now, soup, self.pagination):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination)
+            url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
+            
+            if url_now and self.forum_url in url_now:
+                logging.info(f"*** Found new page with threads... URL: {url_now}")
+                response = session.get(url_now, timeout=60, headers=self.headers)
+                soup = BeautifulSoup(response.content, 'html.parser')
+
+                forum_threads.update(self._get_thread_topics_extract(soup = soup))
+                logging.info(f"--> Threads found in forum: {len(forum_threads)}")
+                print(f"--> Threads found in forum: {len(forum_threads)}")
+            else:
+                break
+
         return forum_threads
 
     def _get_forum_threads_extract(self, soup: BeautifulSoup) -> dict:
@@ -235,12 +253,7 @@ class ForumEnginesManager:
                                                   blacklist = self.threads_blacklist, robotparser = self.robot_parser, 
                                                   forum_url = self.forum_url, force_crawl = self.force_crawl)
             forum_threads.update(threads_found)
-
             time.sleep(self.time_sleep)
-
-            #TODO: Pagination for THREADS
-            # while len(soup.find_all())
-
         logging.info(f"-> Found threads: {len(forum_threads)}")
         print(f"-> Found threads: {len(forum_threads)}")
         return forum_threads

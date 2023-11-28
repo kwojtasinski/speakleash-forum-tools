@@ -113,6 +113,8 @@ class ConfigManager:
         logs_path = os.path.join(self.dataset_folder, f"logs_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
         print(f"Logs will be in: {logs_path}")
 
+        #TODO!: Create proper logger - e.g. logger_tool = logging.basicConfig(...) - for handling all logging
+        #TODO!: Create logger for print to console - e.g. logger_print = logging.basicConfig() - for handling printing to console
         #TODO: Use 1-st - logging.basicConfig - for logging to file in dataset directory
         logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, filename = logs_path, encoding='utf-8')
         # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, encoding='utf-8')
