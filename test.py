@@ -5,7 +5,6 @@ from speakleash_forum_tools import ConfigManager, CrawlerManager, Scraper, Manif
 
 # Example usage:
 if __name__ == "__main__":
-    print("*****************")
 
     ### Engine: invision
     #+ config_manager = ConfigManager()      # Default: forum.szajbajk.pl -> invision                           # Topics to find = 18k (from dashboard) == almost all
@@ -29,7 +28,7 @@ if __name__ == "__main__":
     crawler = CrawlerManager(config_manager)
     if crawler.start_crawler():
         scraper = Scraper(config_manager, crawler)
-        total_docs = scraper.start_scraper()
+        total_docs = scraper.start_scraper(crawler.get_urls_to_scrap())
         if total_docs:
             merge_archive_path, docs_num, total_chars = scraper.arch_manager.merge_archives()
             manifest_created = ManifestManager(config_manager, scraper.arch_manager.merged_archive_path, total_docs=docs_num, total_characters=total_chars)

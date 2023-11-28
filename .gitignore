@@ -7,3 +7,4 @@ temp_scraper_data/
 *.dat
 *.zst
 *.manifest
+*.log

@@ -53,7 +53,6 @@ class Scraper:
         _scrap_txt_mp: Orchestrates the scraping process using multiprocessing.
     """
     def __init__(self, config_manager: ConfigManager, crawler_manager: CrawlerManager):
-
         self.config = config_manager
         self.crawler = crawler_manager
 
@@ -66,7 +65,7 @@ class Scraper:
 
     ### Functions ###
 
-    def start_scraper(self) -> int:
+    def start_scraper(self, urls_to_scrap: pandas.DataFrame) -> int:
         """
         Initiates the scraping process and returns the total number of documents scraped.
 
@@ -75,13 +74,14 @@ class Scraper:
         total_docs: int = 0
         try:
             total_docs: int = self._scrap_txt_mp(ar = self.archive,
-                                             topics_minus_visited = self.crawler.get_urls_to_scrap(),
+                                             topics_minus_visited = urls_to_scrap,
                                              visited_topics = self.crawler.visited_topics)
         except Exception as e:
             logging.error(f"Error in SCRAPER -> Error: {e}")
             total_docs: int = 0
 
         logging.info(f"*** Scraper found documents: {total_docs}")
+        print(f"* Scraper found documents: {total_docs}")
         return total_docs
 
     @staticmethod
@@ -249,11 +249,11 @@ class Scraper:
 
         # Connection not successful - reponse empty
         elif not response:    
-            logging.warning(f"GET_TEXT // Empty response -> {url}\nResponse: {response}")
+            logging.info(f"GET_TEXT // Empty response -> {url}\nResponse: {response}")
 
         # Connection not successful - error
         elif not response.ok:
-            logging.error(f"GET_TEXT // Error response -> {url}\nResponse: {response.status_code}")
+            logging.info(f"GET_TEXT // Error response -> {url}\nResponse: {response.status_code}")
 
         return text, topic_title
 
@@ -289,14 +289,14 @@ class Scraper:
                 logging.error(f"PROCESS_ITEM // Error processing item -> {url} : {str(e)}")
                 meta = {'url' : url, 'topic_title': topic_title, 'skip': 'error'}
         else:
-            logging.info(f"PROCESS_ITEM // URL already visited -> skipping: {url}")
+            logging.debug(f"PROCESS_ITEM // URL already visited -> skipping: {url}")
             meta = {'url' : url, 'topic_title': topic_title, 'skip': 'visited'}
 
         # For DEBUG only
         if psutil.LINUX == True:
-            logging.info(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: {psutil.Process().cpu_num()}")
+            logging.debug(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: {psutil.Process().cpu_num()}")
         else:
-            logging.info(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: ...")
+            logging.debug(f"PROCESS_ITEM // Metadata: {meta} | CPU Core: ...")
 
         return txt_strip, meta
 
@@ -323,6 +323,7 @@ class Scraper:
 
         if urls_left_number and urls_left_number != 0:
             logging.info("*** Scraper will start in 5 sec ...")
+            print("* Scraper will start in 5 sec ...")
             time.sleep(5)
 
             # Temp values, Placeholders will be updated in postprocessing
@@ -356,7 +357,7 @@ class Scraper:
                     for txt, meta in tqdm(pool.imap(func = self._process_item, 
                                                     iterable = topics_minus_visited['Topic_URLs'],
                                                     chunksize = 1)
-                                                    , total = urls_left_number, leave = False, smoothing = 0.02):
+                                                    , total = urls_left_number, smoothing = 0.02):
                         total += 1
                         flag_visited: int = 0
                         flag_skip: int = 0
@@ -418,12 +419,15 @@ class Scraper:
                     logging.error(f"*** ERROR *** --> {str(e)}")
 
                 logging.info(f"SCRAPE // Scraping DONE! --> Checked URLs: {total_visited + total} | Added docs: {total_docs} ||| This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
+                print(f"* Scraping DONE! --> Checked URLs: {total_visited + total} | Added docs: {total_docs} ||| This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
 
                 # Saving Archive and visited URLs
                 ar.commit()
                 self.arch_manager.add_to_visited_file(visited_urls_dataframe)
                 logging.info("SCRAPE // Saved URLs and Archive - DONE!")
+                print("* Saved URLs and Archive - DONE!")
         else:
             logging.info("SCRAPE // Nothing to scrape...")
+            print("* Nothing to scrape...")
 
         return total_docs

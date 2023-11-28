@@ -31,6 +31,7 @@ import os
 import time
 import logging
 import argparse
+import datetime
 import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
@@ -85,6 +86,7 @@ class ConfigManager:
         - headers (dict): Headers e.g. 'User-Agent' of crawler. 
         - force_crawl (bool): Indicates whether robots.txt is taken into account (e.g. robots.txt is parsed wrongly)
         """
+        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, encoding='utf-8')
 
         #TODO: check_for_library_updates()
 
@@ -99,16 +101,23 @@ class ConfigManager:
         if arg_parser == True:
             self._parse_arguments()
 
+        print("*******************************************")
+
         self.files_folder = "scraper_workspace"
         self.dataset_folder = os.path.join(self.files_folder, self.settings['DATASET_NAME'])
         if not os.path.exists(self.dataset_folder):
             os.makedirs(self.dataset_folder)
 
-        #TODO: Use 1-st - logging.basicConfig - for logging to file in dataset directory
-        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = logging.INFO, filename = os.path.join(self.dataset_folder, f'logs_{datetime.now().strftime('%Y%m%d-%H%M%S')}.log'), encoding='utf-8')
-        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl)
+        print(f"* Set some settings... Working dir: {self.files_folder} | Folder: {self.settings['DATASET_NAME']}")
 
-        logging.info("+++++++++++++++++++++++++++++++++++++++++++")
+        logs_path = os.path.join(self.dataset_folder, f"logs_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
+        print(f"Logs will be in: {logs_path}")
+
+        #TODO: Use 1-st - logging.basicConfig - for logging to file in dataset directory
+        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, filename = logs_path, encoding='utf-8')
+        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, encoding='utf-8')
+        
+        logging.info("*******************************************")
 
         self.headers = {
 	        'User-Agent': 'Speakleash',
@@ -118,6 +127,7 @@ class ConfigManager:
 	    }
 
         logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
+        print(f"* Start setting crawler for -> {self.settings['DATASET_URL']} ***")
 
         if check_robots == True:
             logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
@@ -233,7 +243,8 @@ class ConfigManager:
         
         rp = urllib.robotparser.RobotFileParser()
         try:
-            logging.info("Parsing 'robots.txt' lines")
+            logging.info("* Parsing 'robots.txt' lines...")
+            print("* Parsing 'robots.txt' lines...")
             with urllib.request.urlopen(urllib.request.Request(robots_url, headers=self.headers)) as response:
                 try:
                     rp.parse(response.read().decode("utf-8").splitlines())
@@ -245,11 +256,14 @@ class ConfigManager:
             rp.read()
             logging.info("Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
             logging.warning(f"Error while parsing lines: {err}")
+            print("* Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
+            print(f"Error while parsing lines: {err}")
             time.sleep(60)
 
 
         if not rp.can_fetch("*", self.settings['DATASET_URL']) and force_crawl == False:
             logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
+            print(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
             exit()
         else:
             logging.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
@@ -320,13 +334,14 @@ class ConfigManager:
 
     def _print_settings(self) -> None:
 
-        logging.info("--- Print all Settings ---")
-        to_print = "* Crawler settings *"
+        to_print = "--- Crawler settings ---"
         for key, value in self.settings.items():
             to_print = to_print + f"\n{key}: {value}"
 
         logging.info(to_print)
+        print(to_print)
         logging.info("--- --- --- --- --- --- ---")
+        print("--- --- --- --- --- --- ---")
         time.sleep(2)
 
 

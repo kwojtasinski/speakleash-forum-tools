@@ -107,6 +107,7 @@ class ForumEnginesManager:
         :param config_manager(ConfigManager): ConfigManager class with settings.
         """
         logging.info(f"Checking engine type: {self.engine_type}")
+        print(f"Checking engine type: {self.engine_type}")
 
         try:
             if self.engine_type == 'invision':
@@ -122,7 +123,8 @@ class ForumEnginesManager:
             else:
                 raise ValueError("Unsupported forum engine type - you can chose: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']")
         except Exception as e:
-            logging.error(f"{e}")
+            logging.error(f"Error while checking engine type: {e}")
+            print(f"Error while checking engine type: {e}")
 
         self.threads_class = engine_type.threads_class
         self.threads_whitelist = engine_type.threads_whitelist
@@ -164,6 +166,7 @@ class ForumEnginesManager:
         :return: A boolean indicating the success or failure of the crawling process.
         """
         logging.info(f"Starting crawler on: {self.forum_url}")
+        print((f"Starting crawler on: {self.forum_url}"))
 
         try:
             # Fetch the main page of the forum and extract thread links
@@ -174,15 +177,19 @@ class ForumEnginesManager:
             for x in self.forum_threads:
                 for thread_url, thread_name in x.items():
                     logging.info(f"Crawling thread: || {thread_name} || at {thread_url}")
+                    print(f"Crawling thread: || {thread_name} || at {thread_url}")
                     topics = self._get_thread_topics(thread_url, session = session)
                     self.threads_topics.update(topics)
                     logging.info(f"-> All Topics found: {len(self.threads_topics)}")
+                    print(f"-> All Topics found: {len(self.threads_topics)}")
                     time.sleep(self.time_sleep)
 
             self.forum_threads = {key: value for d in self.forum_threads for key, value in d.items()}
 
             logging.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
             logging.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
+            print(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
+            print(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
 
             if len(self.threads_topics) == 0:
                 return False
@@ -235,6 +242,7 @@ class ForumEnginesManager:
             # while len(soup.find_all())
 
         logging.info(f"-> Found threads: {len(forum_threads)}")
+        print(f"-> Found threads: {len(forum_threads)}")
         return forum_threads
 
 
@@ -254,6 +262,7 @@ class ForumEnginesManager:
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
         logging.info(f"--> Topics found in thread: {len(thread_topics)}")
+        print(f"--> Topics found in thread: {len(thread_topics)}")
 
         # Find the link to the next page
         while self._get_next_page_link(url_now, soup, self.pagination):
@@ -267,6 +276,7 @@ class ForumEnginesManager:
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))
                 logging.info(f"--> Topics found in thread: {len(thread_topics)}")
+                print(f"--> Topics found in thread: {len(thread_topics)}")
             else:
                 break
         
@@ -294,6 +304,7 @@ class ForumEnginesManager:
                 forum_threads = self._get_forum_threads_extract(soup=soup)
                 self.forum_threads.append(forum_threads)
                 logging.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
+                print(f"Added new threads (while searching for topics) = {len(forum_threads)}")
                 continue
             
             topics_found = self._crawler_search_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist,

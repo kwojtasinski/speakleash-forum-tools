@@ -113,6 +113,7 @@ class CrawlerManager:
         """
         if not self.forum_topics.empty:
             logging.info("* CralwerManager found file with Topics...")
+            print("* CralwerManager found file with Topics...")
         else:
 
             if self.config_manager.settings['SITEMAPS']:
@@ -123,6 +124,8 @@ class CrawlerManager:
             try:
                 logging.info("---------------------------------------------------------------------------------------------------")
                 logging.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
+                print("---------------------------------------------------------------------------------------------------")
+                print("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
                 forum_tree = self._tree_sitemap(self.sitemaps_url)
                 self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
                                                              whitelist = self.forum_engine.topics_whitelist, blacklist = self.forum_engine.topics_blacklist, 
@@ -130,12 +133,13 @@ class CrawlerManager:
                 self.forum_topics['Topic_Titles'] = ""
                 self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
                 logging.info("---------------------------------------------------------------------------------------------------")
+                print("---------------------------------------------------------------------------------------------------")
             except Exception as e:
                 logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
 
             if self.forum_topics.empty:
-                logging.warning("---------------------------------------------------------------------------------------------------")
                 logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {self.forum_engine.engine_type}")
+                print(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {self.forum_engine.engine_type}")
 
                 if self.forum_engine.crawl_forum():
                     self.forum_topics['Topic_URLs'] = self.forum_engine.get_topics_urls_only()
@@ -143,6 +147,7 @@ class CrawlerManager:
                     self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
         logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
+        print(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
 
         if self.forum_topics.shape[0] > 0:
             # Saving Topics to CSV
@@ -178,6 +183,7 @@ class CrawlerManager:
         forum_tree = sitemap_tree_for_homepage(url)
         end_time = time.perf_counter()
         logging.info(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
+        print(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
         return forum_tree
 
     def _urls_generator(self, forum_tree, whitelist: List[str], blacklist: List[str], robotparser, force_crawl: bool = False) -> list[str]:
@@ -250,6 +256,7 @@ class CrawlerManager:
                 # Read parsed Topics URLs
                 topics_links = pandas.read_csv(os.path.join(dataset_folder, topics_urls_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles'], index_col = None)
                 logging.info(f"Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape} | Size in memory (MB): {(topics_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
+                print(f"* Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape}")
             else:
                 logging.info(f"File with Topics URLs not found... [{topics_urls_filename}]")
 
@@ -257,6 +264,7 @@ class CrawlerManager:
                 # Read scraped Visited Topics URLs
                 visited_links = pandas.read_csv(os.path.join(dataset_folder, topics_visited_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
                 logging.info(f"Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape} | Size in memory (MB): {(visited_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
+                print(f"* Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape}")
             else:
                 logging.info(f"File with Visited Topics URLs not found... [{topics_visited_filename}]")
         else:

@@ -80,6 +80,7 @@ class ArchiveManager:
             if not os.path.exists(self.temp_data_path):
                 os.makedirs(self.temp_data_path)
                 logging.info(f"Archive // Created archive folder at {self.temp_data_path}")
+                print(f"* Created archive folder at {self.temp_data_path}")
         except Exception as e:
             logging.error(f"Archive // Error while checking or creating folder for 'temp_scraper_data' -> {e}")
 
@@ -119,6 +120,7 @@ class ArchiveManager:
           and total number of characters across all documents.
         """
         logging.info("* Preparing Archive for chunks merging...")
+        print("* Preparing Archive for chunks merging...")
 
         merged_file_path = os.path.join(self.merged_archive_path, f"{self.dataset_name}.jsonl.zst")
         merged_file_dir_temp = os.path.join(self.merged_archive_path, "temp")
@@ -146,6 +148,7 @@ class ArchiveManager:
         ar_merge.commit()
         del (ar_merge)          # Delete Archive class to avoid errors with directories
         logging.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
+        print(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
 
         # Read merged archive - check if everything is okey
         try:
@@ -171,9 +174,12 @@ class ArchiveManager:
             logging.error(f"Archive // Error! Length of merged Archive is different! -> {total_docs=} != {len_archive_merged=}")
 
         try:
+            os.remove(merged_file_path)
             os.rename(data_merge[-1], merged_file_path)
         except Exception as e:
             logging.error(f"Archive // Error while renaming: {e}")
+
+        print(f"Dataset File: {merged_file_path}")
 
         try:
             shutil.rmtree(merged_file_dir_temp)

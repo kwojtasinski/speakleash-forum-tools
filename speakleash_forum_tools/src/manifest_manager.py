@@ -39,6 +39,7 @@ class ManifestManager:
         self.manifest_created: bool = self.create_manifest(config_manager, directory_to_save, total_docs, total_characters)
         if self.manifest_created:
             logging.info("* Manifest created (in directory with merged archive)")
+            print("* Manifest created (in directory with merged archive)")
 
 
     ### Functions ###
