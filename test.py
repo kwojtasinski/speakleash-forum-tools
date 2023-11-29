@@ -11,7 +11,7 @@ if __name__ == "__main__":
     #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')          # Topics to find = 85.5k (from dashboard) == to big for testing manual crawler
 
     ### Engine: phpBB 
-    config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb', time_sleep=1, processes=2, log_lvl='DEBUG')      # Topics to find = 21 669 (calc from website) == almost all
+    config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb', time_sleep=0.5, processes=1, log_lvl='DEBUG')      # Topics to find = 21 669 (calc from website) == almost all
     #+ config_manager = ConfigManager(dataset_url="https://www.gry-planszowe.pl", forum_engine='phpbb', log_lvl='DEBUG')         # Topics to find = 24 596 (calc from website) == almost all
     #+ config_manager = ConfigManager(dataset_url="https://www.excelforum.pl", forum_engine='phpbb', log_lvl='DEBUG')            # Topics to find = 58 414 (calc from website) == 48k found
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         if total_docs:
             merge_archive_path, docs_num, total_chars = scraper.arch_manager.merge_archives()
             manifest_created = ManifestManager(config_manager, scraper.arch_manager.merged_archive_path, total_docs=docs_num, total_characters=total_chars)
+            config_manager.q_listener.stop()
+            
             if manifest_created:
                 print("+++ HEY! WE CREATE EVERYTHING!!! +++")
-                config_manager.q_listener.stop()
-            

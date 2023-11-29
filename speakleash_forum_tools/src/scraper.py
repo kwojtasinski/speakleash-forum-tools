@@ -165,6 +165,7 @@ class Scraper:
         text = ''
         topic_title = ''
         topic_url = url
+        page_num = 1
 
         # loggur.debug(f"GET_TEXT // -> Checking URL: {url}")
 
@@ -235,7 +236,8 @@ class Scraper:
                     url = urljoin(DATASET_URL, next_page_link) if next_page_link else False
 
                     if url and DATASET_URL in url:
-                        loggur.debug(f"GET_TEXT // Found new page for topic: {url} | Topic: {topic_url}")
+                        page_num += 1
+                        loggur.debug(f"GET_TEXT // Found new page for topic: {page_num} -> {url} | Topic: {topic_url}")
 
                         next_page_response = session.get(url, timeout=60, headers = headers)
                         soup = BeautifulSoup(next_page_response.content, "html.parser")
@@ -310,10 +312,14 @@ class Scraper:
             meta = {'url' : url, 'topic_title': topic_title, 'skip': 'visited'}
 
         # For DEBUG only
-        if psutil.LINUX == True:
-            loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
-        else:
-            loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid}")
+        try:
+            if psutil.LINUX == True:
+                loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
+            else:
+                loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid}")
+        except Exception as e:
+            loggur.warning("Problem with logging... Not printing METADATA for this topic...")
+            loggur.debug(f"PROCESS_ITEM // Metadata: ... | Proc ID: {psutil.Process().pid}")
 
         return txt_strip, meta
 
