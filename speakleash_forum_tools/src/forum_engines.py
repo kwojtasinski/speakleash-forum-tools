@@ -82,12 +82,15 @@ class ForumEnginesManager:
         - content_class (List[str]): "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
             e.g. ["content_class"] (for phpBB engine)
         """
+        self.logger_tool = config_manager.logger_tool
+        self.logger_print = config_manager.logger_print
+        
         self.headers = config_manager.headers
         self.engine_type = config_manager.settings['FORUM_ENGINE']
         self.forum_url = config_manager.settings['DATASET_URL']
         self.dataset_name = config_manager.settings['DATASET_NAME']
         self.time_sleep = config_manager.settings['TIME_SLEEP']
-        logging.info(f"Forum Engines Manager -> Forum URL = {self.forum_url} | Engine Type = {self.engine_type} | Sleep Time = {self.time_sleep}")
+        self.logger_tool.info(f"Forum Engines Manager -> Forum URL = {self.forum_url} | Engine Type = {self.engine_type} | Sleep Time = {self.time_sleep}")
 
         self.robot_parser = config_manager.robot_parser
         self.force_crawl = config_manager.force_crawl
@@ -106,8 +109,8 @@ class ForumEnginesManager:
 
         :param config_manager(ConfigManager): ConfigManager class with settings.
         """
-        logging.info(f"Checking engine type: {self.engine_type}")
-        print(f"Checking engine type: {self.engine_type}")
+        self.logger_tool.info(f"Checking engine type: {self.engine_type}")
+        self.logger_print.info(f"Checking engine type: {self.engine_type}")
 
         try:
             if self.engine_type == 'invision':
@@ -123,8 +126,8 @@ class ForumEnginesManager:
             else:
                 raise ValueError("Unsupported forum engine type - you can chose: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']")
         except Exception as e:
-            logging.error(f"Error while checking engine type: {e}")
-            print(f"Error while checking engine type: {e}")
+            self.logger_tool.error(f"Error while checking engine type: {e}")
+            self.logger_print.info(f"Error while checking engine type: {e}")
 
         self.threads_class = engine_type.threads_class
         self.threads_whitelist = engine_type.threads_whitelist
@@ -153,9 +156,9 @@ class ForumEnginesManager:
                 self.pagination.extend(config_manager.settings['PAGINATION'])
             if config_manager.settings['CONTENT_CLASS'] and isinstance(config_manager.settings['CONTENT_CLASS'], list):
                 self.content_class.extend(config_manager.settings['CONTENT_CLASS'])
-            logging.debug("Checked all additional lists of threads/topics/whitelist/blacklist to search...")
+            self.logger_tool.debug("Checked all additional lists of threads/topics/whitelist/blacklist to search...")
         except Exception as e:
-            logging.error(f"ForumEnginesManager: Error while extending lists of threads/topics/whitelist/blacklist to search! Error: {e}")
+            self.logger_tool.error(f"ForumEnginesManager: Error while extending lists of threads/topics/whitelist/blacklist to search! Error: {e}")
 
 
     def crawl_forum(self) -> bool:
@@ -165,8 +168,8 @@ class ForumEnginesManager:
 
         :return: A boolean indicating the success or failure of the crawling process.
         """
-        logging.info(f"Starting crawler on: {self.forum_url}")
-        print((f"Starting crawler on: {self.forum_url}"))
+        self.logger_tool.info(f"Starting crawler on: {self.forum_url}")
+        self.logger_print.info((f"Starting crawler on: {self.forum_url}"))
 
         try:
             # Fetch the main page of the forum and extract thread links
@@ -176,29 +179,29 @@ class ForumEnginesManager:
             # Iterate over each thread and extract topics
             for x in self.forum_threads:
                 for thread_url, thread_name in x.items():
-                    logging.info(f"Crawling thread: || {thread_name} || at {thread_url}")
-                    print(f"Crawling thread: || {thread_name} || at {thread_url}")
+                    self.logger_tool.info(f"Crawling thread: || {thread_name} || at {thread_url}")
+                    self.logger_print.info(f"Crawling thread: || {thread_name} || at {thread_url}")
                     topics = self._get_thread_topics(thread_url, session = session)
                     self.threads_topics.update(topics)
-                    logging.info(f"-> All Topics found: {len(self.threads_topics)}")
-                    print(f"-> All Topics found: {len(self.threads_topics)}")
+                    self.logger_tool.info(f"-> All Topics found: {len(self.threads_topics)}")
+                    self.logger_print.info(f"-> All Topics found: {len(self.threads_topics)}")
                     time.sleep(self.time_sleep)
 
             self.forum_threads = {key: value for d in self.forum_threads for key, value in d.items()}
 
-            logging.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
-            logging.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
-            print(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
-            print(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
+            self.logger_tool.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
+            self.logger_tool.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
+            self.logger_print.info(f"Crawler (manually) found: Threads = {len(self.forum_threads)}")
+            self.logger_print.info(f"Crawler (manually) found: Topics = {len(self.threads_topics)}")
 
             if len(self.threads_topics) == 0:
                 return False
 
             return True
         except Exception as e:
-            logging.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
-            logging.error(f"Can't crawl topics -> {e}")
-            logging.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
+            self.logger_tool.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
+            self.logger_tool.error(f"Can't crawl topics -> {e}")
+            self.logger_tool.error("ERROR --- ERROR --- ERROR --- ERROR --- ERROR")
             return False
 
     def _get_forum_threads(self, url_now: str, session: requests.Session) -> dict:
@@ -217,18 +220,18 @@ class ForumEnginesManager:
 
         #TODO: Pagination for THREADS
         # Find the link to the next page
-        while self._get_next_page_link(url_now, soup, self.pagination):
-            next_page_link = self._get_next_page_link(url_now, soup, self.pagination)
+        while self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
-                logging.info(f"*** Found new page with threads... URL: {url_now}")
+                self.logger_tool.info(f"*** Found new page with threads... URL: {url_now}")
                 response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 forum_threads.update(self._get_thread_topics_extract(soup = soup))
-                logging.info(f"--> Threads found in forum: {len(forum_threads)}")
-                print(f"--> Threads found in forum: {len(forum_threads)}")
+                self.logger_tool.info(f"--> Threads found in forum: {len(forum_threads)}")
+                self.logger_print.info(f"--> Threads found in forum: {len(forum_threads)}")
             else:
                 break
 
@@ -251,11 +254,11 @@ class ForumEnginesManager:
 
             threads_found = self._crawler_search_filter(to_find = "THREAD", to_search = threads, whitelist = self.threads_whitelist,
                                                   blacklist = self.threads_blacklist, robotparser = self.robot_parser, 
-                                                  forum_url = self.forum_url, force_crawl = self.force_crawl)
+                                                  forum_url = self.forum_url, force_crawl = self.force_crawl, logger_tool=self.logger_tool)
             forum_threads.update(threads_found)
             time.sleep(self.time_sleep)
-        logging.info(f"-> Found threads: {len(forum_threads)}")
-        print(f"-> Found threads: {len(forum_threads)}")
+        self.logger_tool.info(f"-> Found threads: {len(forum_threads)}")
+        self.logger_print.info(f"-> Found threads: {len(forum_threads)}")
         return forum_threads
 
 
@@ -274,22 +277,22 @@ class ForumEnginesManager:
         soup = BeautifulSoup(response.content, 'html.parser')
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
-        logging.info(f"--> Topics found in thread: {len(thread_topics)}")
-        print(f"--> Topics found in thread: {len(thread_topics)}")
+        self.logger_tool.info(f"--> Topics found in thread: {len(thread_topics)}")
+        self.logger_print.info(f"--> Topics found in thread: {len(thread_topics)}")
 
         # Find the link to the next page
-        while self._get_next_page_link(url_now, soup, self.pagination):
-            next_page_link = self._get_next_page_link(url_now, soup, self.pagination)
+        while self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
-                logging.info(f"*** Found new page with topics... URL: {url_now}")
+                self.logger_tool.info(f"*** Found new page with topics... URL: {url_now}")
                 response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))
-                logging.info(f"--> Topics found in thread: {len(thread_topics)}")
-                print(f"--> Topics found in thread: {len(thread_topics)}")
+                self.logger_tool.info(f"--> Topics found in thread: {len(thread_topics)}")
+                self.logger_print.info(f"--> Topics found in thread: {len(thread_topics)}")
             else:
                 break
         
@@ -311,26 +314,26 @@ class ForumEnginesManager:
             html_tag, tp_type_class = topic_class.split(" >> ")
             tp_type, tp_class = tp_type_class.split(" :: ")
             topics = soup.find_all(html_tag, {tp_type: tp_class})
-            logging.debug(f"Found URLs = {len(topics)}")
+            self.logger_tool.debug(f"Found URLs = {len(topics)}")
 
             if len(topics) == 0:
                 forum_threads = self._get_forum_threads_extract(soup=soup)
                 self.forum_threads.append(forum_threads)
-                logging.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
-                print(f"Added new threads (while searching for topics) = {len(forum_threads)}")
+                self.logger_tool.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
+                self.logger_print.info(f"Added new threads (while searching for topics) = {len(forum_threads)}")
                 continue
             
             topics_found = self._crawler_search_filter(to_find = "TOPIC", to_search = topics, whitelist = self.topics_whitelist,
                                                  blacklist = self.topics_blacklist, robotparser = self.robot_parser, 
-                                                 forum_url = self.forum_url, force_crawl = self.force_crawl)
+                                                 forum_url = self.forum_url, force_crawl = self.force_crawl, logger_tool=self.logger_tool)
             thread_topics.update(topics_found)
         
         time.sleep(self.time_sleep)
-        logging.info(f"Found topics: {len(thread_topics)}")
+        self.logger_tool.info(f"Found topics: {len(thread_topics)}")
         return thread_topics
 
     @staticmethod
-    def _get_next_page_link(url_now: str, soup: BeautifulSoup, pagination: list[str]) -> Union[str, bool]:
+    def _get_next_page_link(url_now: str, soup: BeautifulSoup, pagination: list[str], logger_tool: logging.Logger, push_log: bool = True) -> Union[str, bool]:
         """
         Finds the link to the next page using pagination.
         Default HTML tags to search = ['li', 'a', 'div']
@@ -343,36 +346,31 @@ class ForumEnginesManager:
         for pagination_class in pagination:
             next_button = []
             html_tag = ['li', 'a', 'div']
-            next_button = soup.find(html_tag, {'class': {pagination_class}})
+            
+            try:
+                if (pagination_class.find(" >> ") < 0) and (pagination_class.find(" :: ") < 0):
+                    next_button = soup.find(html_tag, {'class': {pagination_class}})
 
-            if not next_button:
-                try:
-                    try:
-                        pag_type, pag_class = pagination_class.split(" :: ")
-                        next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
-                        if (next_button):
-                            logging.debug("Button to next page - FOUND -> wierd spot")
-                        else:
-                            logging.debug("Button to next page - NOT FOUND")
-                            continue
-                    except Exception as e:
-                        html_tag, pag_type_class = pagination_class.split(" >> ")
-                        pag_type, pag_class = pag_type_class.split(" :: ")
-                        next_button = soup.find_all(html_tag, {pag_type:pag_class})[0]
-                        if (next_button):
-                            logging.debug("Button to next page - FOUND -> wierd spot")
-                        else:
-                            logging.debug("Button to next page - NOT FOUND")
-                            logging.debug(f"Error: {e}")
-                            continue
-                except Exception as e:
-                    if e:
-                        logging.debug(f"ERROR: Error while searching for pagination -> {e}")
-                    logging.debug("NOT FOUND - Button to next page - NOT FOUND")
-                    continue
+                if not next_button and (pagination_class.find(" >> ") < 0) and (pagination_class.find(" :: ") > 0):
+                    pag_type, pag_class = pagination_class.split(" :: ")
+                    next_button = soup.find_all(html_tag, {pag_type:pag_class})
+                    if next_button:
+                        next_button = next_button[0]
+
+                if not next_button and (pagination_class.find(" >> ") > 0) and (pagination_class.find(" :: ") > 0):
+                    html_tag, pag_type_class = pagination_class.split(" >> ")
+                    pag_type, pag_class = pag_type_class.split(" :: ")
+                    next_button = soup.find_all(html_tag, {pag_type:pag_class})
+                    if next_button:
+                        next_button = next_button[0]
+
+            except Exception as e:
+                logger_tool.error(f"NEXT PAGE // ERROR: Error while searching for pagination -> {e}")
+                logger_tool.debug("NEXT PAGE // NOT FOUND - Button to next page - NOT FOUND")
+                continue
             
             if next_button:
-                logging.debug(f"Found button! ({len(next_button)}) | Button: {True if next_button else False}") 
+                # logger_tool.debug(f"NEXT PAGE // Found button! ({len(next_button)}) | Button: {True if next_button else False}") 
                 try:
                     next_page = next_button['href']
                 except:
@@ -380,14 +378,18 @@ class ForumEnginesManager:
                 
                 if next_page == url_now:
                     continue
-
-                logging.debug(f"Found next page with topics -> {next_page}")
+                
+                if push_log:
+                    logger_tool.debug(f"NEXT PAGE // Found next page with topics -> {next_page}")
+                
                 return next_page
-        logging.debug("Can't find more pages in this thread ---")
+        
+        logger_tool.debug("NEXT PAGE // Can't find more pages in this topic ---")
         return False
     
     @staticmethod
-    def _crawler_search_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str], robotparser, forum_url: str, force_crawl: bool = False) -> dict:
+    def _crawler_search_filter(to_find: str, to_search, whitelist: List[str], blacklist: List[str],
+                               robotparser, forum_url: str, force_crawl: bool, logger_tool: logging.Logger) -> dict:
         """
         Filtering found URLs and check them with robots.txt parser.
 
@@ -411,35 +413,35 @@ class ForumEnginesManager:
                     a_tags = tag_solo.find_all('a')
 
                 for a_tag in a_tags:
-                    # logging.debug(f"{to_find} -> {a_tag['href']}")
+                    # self.logger_tool.debug(f"{to_find} -> {a_tag['href']}")
                     if whitelist:
                         if any(y in a_tag['href'] for y in whitelist):
                             if blacklist:
                                 if any(y in a_tag['href'] for y in blacklist):
-                                    logging.debug(f"{to_find} OUT <- {a_tag['href']}")
+                                    logger_tool.debug(f"{to_find} OUT <- {a_tag['href']}")
                                     continue
                             if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
-                                logging.debug(f"{to_find} GOOD -> {a_tag['href']}")
+                                logger_tool.debug(f"{to_find} GOOD -> {a_tag['href']}")
                                 to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
                             else:
-                                logging.debug(f"{to_find} OUT <- {a_tag['href']}")
+                                logger_tool.debug(f"{to_find} OUT <- {a_tag['href']}")
                             continue
                         else:
-                            logging.debug(f"{to_find} OUT <- {a_tag['href']}")
+                            logger_tool.debug(f"{to_find} OUT <- {a_tag['href']}")
                             continue
                     if blacklist:
                         if any(y in a_tag['href'] for y in blacklist):
-                            logging.debug(f"{to_find} OUT <- {a_tag['href']}")
+                            logger_tool.debug(f"{to_find} OUT <- {a_tag['href']}")
                             continue
                     
                     if not whitelist or not blacklist:
                         if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
-                            logging.debug(f"{to_find} GOOD (+) -> {a_tag['href']}")
+                            logger_tool.debug(f"{to_find} GOOD (+) -> {a_tag['href']}")
                             to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
                         else:
-                            logging.debug(f"{to_find} OUT (+) <- {a_tag['href']}")
+                            logger_tool.debug(f"{to_find} OUT (+) <- {a_tag['href']}")
             except Exception as e:
-                logging.error(f"Error while crawl for {to_find}s -> {e}")
+                logger_tool.error(f"Error while crawl for {to_find}s -> {e}")
 
         return to_return_dict
 
@@ -511,8 +513,8 @@ class XenForoCrawler:
         self.topics_whitelist: List[str] = ["threads"]
         self.topics_blacklist: List[str] = ["preview"]
         self.pagination: List[str] = ["pageNav-jump pageNav-jump--next"]  # Used for subforums and topics pagination
-        self.topic_title_class: List[str] = []
-        self.content_class: List[str] = ["message-body js-selectToQuote"]        # Used for content_class / messages
+        self.topic_title_class: List[str] = ["h1 >> class :: p-title-value"]
+        self.content_class: List[str] = ["article >> class :: message-body js-selectToQuote"]        # Used for content_class / messages
 
 class UnsupportedCrawler:
     """

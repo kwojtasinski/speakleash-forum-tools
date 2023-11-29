@@ -30,8 +30,8 @@ Dependencies:
 """
 import os
 import glob
-import logging
 import shutil
+import logging
 from typing import Tuple
 
 import pandas
@@ -49,7 +49,7 @@ class ArchiveManager:
         2.c) merge archives after scraping
     3) prepare Archive (with path to specific folder)
     """
-    def __init__(self, dataset_name: str, dataset_folder: str, visited_filename: str):
+    def __init__(self, dataset_name: str, dataset_folder: str, visited_filename: str, logger_tool: logging.Logger, logger_print: logging.Logger, print_to_console: bool):
         """
         ArchiveManager class provides simple functions for managing Archive and everything around this topic.
         Import important names and paths, process some more paths and prepare Archive class.
@@ -59,6 +59,10 @@ class ArchiveManager:
         :param dataset_folder (str): Path to dataset directory.
         :param visited_filename (str): File name with visited URLs.
         """
+        self.logger_tool = logger_tool
+        self.logger_print = logger_print
+        self.print_to_console = print_to_console
+
         self.dataset_zst_filename = dataset_name + '.jsonl.zst'
         self.dataset_name = dataset_name
         self.dataset_folder = dataset_folder
@@ -79,10 +83,10 @@ class ArchiveManager:
         try:
             if not os.path.exists(self.temp_data_path):
                 os.makedirs(self.temp_data_path)
-                logging.info(f"Archive // Created archive folder at {self.temp_data_path}")
-                print(f"* Created archive folder at {self.temp_data_path}")
+                self.logger_tool.info(f"Archive // Created archive folder at {self.temp_data_path}")
+                self.logger_print.info(f"* Created archive folder at {self.temp_data_path}")
         except Exception as e:
-            logging.error(f"Archive // Error while checking or creating folder for 'temp_scraper_data' -> {e}")
+            self.logger_tool.error(f"Archive // Error while checking or creating folder for 'temp_scraper_data' -> {e}")
 
     def add_to_visited_file(self, urls_dataframe: pandas.DataFrame, file_name: str = "", head = False, mode = 'a') -> None:
         """
@@ -96,7 +100,7 @@ class ArchiveManager:
         if not file_name:
             file_name = self.visited_filename
         urls_dataframe.to_csv(os.path.join(self.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
-        logging.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
+        self.logger_tool.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
 
     def create_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
         """
@@ -107,9 +111,9 @@ class ArchiveManager:
         :param file_name (str): Name of CSV file.
         """
         if os.path.exists(os.path.join(self.dataset_folder, file_name)):
-            logging.debug("Archive // File with visited URLs exist")
+            self.logger_tool.debug("Archive // File with visited URLs exist")
         else:
-            logging.debug("Archive // File with visited URLs don't exist - creating new file")
+            self.logger_tool.debug("Archive // File with visited URLs don't exist - creating new file")
             self.add_to_visited_file(urls_dataframe = urls_dataframe, file_name = file_name, head = True, mode = 'w')
 
     def merge_archives(self) -> Tuple[str, int, int]:
@@ -119,8 +123,8 @@ class ArchiveManager:
         :return: Tuple containing the path to the merged archive, number of documents,
           and total number of characters across all documents.
         """
-        logging.info("* Preparing Archive for chunks merging...")
-        print("* Preparing Archive for chunks merging...")
+        self.logger_tool.info("* Preparing Archive for chunks merging...")
+        self.logger_print.info("* Preparing Archive for chunks merging...")
 
         merged_file_path = os.path.join(self.merged_archive_path, f"{self.dataset_name}.jsonl.zst")
         merged_file_dir_temp = os.path.join(self.merged_archive_path, "temp")
@@ -134,7 +138,7 @@ class ArchiveManager:
         total_chars = 0
 
         # Re-packing chunks of archive to 1 output file
-        for file_path in tqdm(data_files):
+        for file_path in tqdm(data_files, disable= not self.print_to_console):
             arch_part = Reader(file_path)
             for id, record in enumerate(arch_part.stream_data(get_meta = True)):
                 urel = record[1].get('url')
@@ -147,15 +151,15 @@ class ArchiveManager:
                     urls_duplicated += 1
         ar_merge.commit()
         del (ar_merge)          # Delete Archive class to avoid errors with directories
-        logging.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
-        print(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
+        self.logger_tool.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
+        self.logger_print.info(f"* Merged {total_docs} documents with a total of {total_chars} characters | Duplicated: {urls_duplicated}")
 
         # Read merged archive - check if everything is okey
         try:
             data_merge = glob.glob(f'{merged_file_dir_temp}/*.zst')
             data_merge.sort()
             if not data_merge[-1]:
-                logging.error("Archive // Error! Can't find merged file -> *.jsonl.zst")
+                self.logger_tool.error("Archive // Error! Can't find merged file -> *.jsonl.zst")
                 return "", 0, 0
             len_archive_merged = 0
             ar_merge_reader = Reader(merged_file_dir_temp)
@@ -165,25 +169,26 @@ class ArchiveManager:
                 len_archive_merged = id
             len_archive_merged = len_archive_merged + 1
         except Exception as e:
-            logging.error(f"Archive // Error while checking merged Archive: {e}")
+            self.logger_tool.error(f"Archive // Error while checking merged Archive: {e}")
 
         # Last check everything was okey
         if len_archive_merged == total_docs:
-            logging.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {merged_file_path}")
+            self.logger_tool.info(f"Archive // Checked Archive --> joined - DONE! | Docs: {len_archive_merged} | File: {merged_file_path}")
         else:
-            logging.error(f"Archive // Error! Length of merged Archive is different! -> {total_docs=} != {len_archive_merged=}")
+            self.logger_tool.error(f"Archive // Error! Length of merged Archive is different! -> {total_docs=} != {len_archive_merged=}")
 
         try:
-            os.remove(merged_file_path)
-            os.rename(data_merge[-1], merged_file_path)
+            if os.path.exists(merged_file_path):
+                os.remove(merged_file_path)
+            shutil.move(data_merge[-1], merged_file_path)
         except Exception as e:
-            logging.error(f"Archive // Error while renaming: {e}")
+            self.logger_tool.error(f"Archive // Error while renaming: {e}")
 
-        print(f"Dataset File: {merged_file_path}")
+        self.logger_print.info(f"Dataset File: {merged_file_path}")
 
         try:
             shutil.rmtree(merged_file_dir_temp)
         except Exception as e:
-            logging.error(f"Archive // Error while removedirs: {e}")
+            self.logger_tool.error(f"Archive // Error while removedirs: {e}")
 
         return merged_file_path, total_docs, total_chars

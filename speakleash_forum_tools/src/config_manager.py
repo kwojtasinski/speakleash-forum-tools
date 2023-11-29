@@ -30,8 +30,10 @@ Dependencies:
 import os
 import time
 import logging
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 import argparse
 import datetime
+import multiprocessing
 import urllib.request
 import urllib.robotparser
 from urllib.parse import urlparse, urljoin
@@ -47,7 +49,7 @@ class ConfigManager:
 
     def __init__(self, dataset_url: str = "https://forum.szajbajk.pl", dataset_category: str = 'Forum', forum_engine: str = 'invision',
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
-                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO,
+                 processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO, print_to_console: bool = True,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
                  topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []):
         """
@@ -86,7 +88,6 @@ class ConfigManager:
         - headers (dict): Headers e.g. 'User-Agent' of crawler. 
         - force_crawl (bool): Indicates whether robots.txt is taken into account (e.g. robots.txt is parsed wrongly)
         """
-        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, encoding='utf-8')
 
         #TODO: check_for_library_updates()
 
@@ -101,25 +102,28 @@ class ConfigManager:
         if arg_parser == True:
             self._parse_arguments()
 
-        print("*******************************************")
+        # Logger for handling all logs to console
+        self.logger_print = self.setup_logger_print(print_to_console)
+        self.print_to_console = print_to_console
+
+        self.logger_print.info("*******************************************")
+        self.logger_print.info("*** SpeakLeash Forum Tools - crawler/scraper for forums ***")
 
         self.files_folder = "scraper_workspace"
         self.dataset_folder = os.path.join(self.files_folder, self.settings['DATASET_NAME'])
         if not os.path.exists(self.dataset_folder):
             os.makedirs(self.dataset_folder)
 
-        print(f"* Set some settings... Working dir: {self.files_folder} | Folder: {self.settings['DATASET_NAME']}")
+        self.logger_print.info(f"* Set some settings... Working dir: {self.files_folder} | Folder: {self.settings['DATASET_NAME']}")
 
-        logs_path = os.path.join(self.dataset_folder, f"logs_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
-        print(f"Logs will be in: {logs_path}")
+        self.logs_path = os.path.join(self.dataset_folder, f"logs_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log")
+        self.logger_print.info(f"Logs will be in: {self.logs_path}")
 
-        #TODO!: Create proper logger - e.g. logger_tool = logging.basicConfig(...) - for handling all logging
-        #TODO!: Create logger for print to console - e.g. logger_print = logging.basicConfig() - for handling printing to console
-        #TODO: Use 1-st - logging.basicConfig - for logging to file in dataset directory
-        logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, filename = logs_path, encoding='utf-8')
-        # logging.basicConfig(format = '%(asctime)s: %(levelname)s: %(message)s', level = log_lvl, encoding='utf-8')
+        # Logger for handling all logs to file
+        self.logger_tool, self.q_listener, self.q_que = self.setup_logger_tool(self.logs_path, log_lvl = log_lvl)
         
-        logging.info("*******************************************")
+        self.logger_tool.info("*******************************************")
+        self.logger_tool.info("*** SpeakLeash Forum Tools - crawle/scraper for forums ***")
 
         self.headers = {
 	        'User-Agent': 'Speakleash',
@@ -128,11 +132,11 @@ class ConfigManager:
 	        "Connection": "keep-alive"
 	    }
 
-        logging.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
-        print(f"* Start setting crawler for -> {self.settings['DATASET_URL']} ***")
+        self.logger_tool.info(f"*** Start setting crawler for -> {self.settings['DATASET_URL']} ***")
+        self.logger_print.info(f"* Start setting crawler for -> {self.settings['DATASET_URL']}")
 
         if check_robots == True:
-            logging.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
+            self.logger_tool.info(f"Force crawl set to: {self.settings['FORCE_CRAWL']}")
             self.robot_parser, self.force_crawl = self._check_robots_txt(force_crawl = self.settings['FORCE_CRAWL'])
         else:
             self.robot_parser = self.init_robotstxt()
@@ -241,55 +245,117 @@ class ConfigManager:
         :return: Returns Tuple with robotparser and force_crawl parameter.
         """
         robots_url = urljoin(self.main_site, "robots.txt")
-        logging.info(f"* robots.txt expected url: {robots_url}")
+        self.logger_tool.info(f"* robots.txt expected url: {robots_url}")
         
         rp = urllib.robotparser.RobotFileParser()
+        self.logger_tool.info("* Parsing 'robots.txt' lines...")
+        self.logger_print.info("* Parsing 'robots.txt' lines...")
+        
         try:
-            logging.info("* Parsing 'robots.txt' lines...")
-            print("* Parsing 'robots.txt' lines...")
             with urllib.request.urlopen(urllib.request.Request(robots_url, headers=self.headers)) as response:
                 try:
-                    rp.parse(response.read().decode("utf-8").splitlines())
+                    content = response.read().decode("utf-8")
                 except Exception as e:
-                    logging.error(f"Error while parsing lines -> using 'latin-1' || Error: {e}")
-                    rp.parse(response.read().decode("latin-1").splitlines())
+                    content = response.read().decode("latin-1")
+        
+                if not content:
+                    import requests
+                    session_obj = requests.Session()
+                    response = session_obj.get(robots_url, headers=self.headers)
+                    try:
+                        content = response.content.decode("utf-8")
+                    except:
+                        content = response.content.decode("latin-1")
+
+                    if not content:
+                        robots_url = robots_url.replace("//forum.", "//")
+                        self.logger_tool.info(f"* change robots.txt expected url: {robots_url}")
+                        self.logger_print.info(f"* change robots.txt expected url: {robots_url}")
+        except Exception as e:
+            self.logger_tool.error(f"Error while checking 'robots.txt' 1-st time...: {e}")
+
+        # print("------------------------------")
+        time.sleep(0.5)
+
+        try:
+            with urllib.request.urlopen(urllib.request.Request(robots_url, headers=self.headers)) as response:
+                try:
+                    content = response.read().decode("utf-8")
+                except Exception as e:
+                    content = response.read().decode("latin-1")
+                
+                if not content:
+                    import requests
+                    session_obj = requests.Session()
+                    response = session_obj.get(robots_url, headers=self.headers)
+                    try:
+                        content = response.content.decode("utf-8")
+                    except:
+                        content = response.content.decode("latin-1")
+                try:
+                    with open(os.path.join(self.dataset_folder, 'robots.txt'), 'w') as robots_file:
+                        robots_file.write(content)
+                except Exception as e:
+                    self.logger_tool.error(f"Error while saving 'robots.txt': {e}")
+                
+                try:
+                    rp.parse(content.splitlines())
+                except Exception as e:
+                    self.logger_tool.error(f"Error while parsing lines -> Error: {e}")
         except Exception as err:
             rp.set_url(robots_url)
             rp.read()
-            logging.info("Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
-            logging.warning(f"Error while parsing lines: {err}")
-            print("* Read 'robots.txt' -> CHECK robots.txt -> Sleep for 1 min")
-            print(f"Error while parsing lines: {err}")
-            time.sleep(60)
+            self.logger_tool.info("Read 'robots.txt' -> check robots.txt -> Sleep for 1 min")
+            self.logger_tool.error(f"Error while parsing lines: {err}")
+            self.logger_print.info("* Read 'robots.txt' -> check logs!!! and robots.txt -> Sleep for 1 min")
+            self.logger_print.error(f"Error while parsing lines: {err}")
+            time.sleep(30)
 
 
-        if not rp.can_fetch("*", self.settings['DATASET_URL']) and force_crawl == False:
-            logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
-            print(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
+        if not rp.can_fetch("*", urlparse(self.settings['DATASET_URL']).path) and force_crawl == False:
+            self.logger_tool.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
+            self.logger_print.info(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
             exit()
         else:
-            logging.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
+            self.logger_tool.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
 
         rrate = rp.request_rate("*")
         if rrate:
-            logging.info(f"* robots.txt -> requests: {rrate.requests}")
-            logging.info(f"* robots.txt -> seconds: {rrate.seconds}")
-            logging.info(f"* setting scraper time_sleep to: {(rrate.seconds / rrate.requests):.2f}")
+            self.logger_tool.info(f"* robots.txt -> requests: {rrate.requests}")
+            self.logger_tool.info(f"* robots.txt -> seconds: {rrate.seconds}")
+            self.logger_tool.info(f"* setting scraper time_sleep to: {(rrate.seconds / rrate.requests):.2f}")
             self.settings['TIME_SLEEP'] = round(rrate.seconds / rrate.requests, 2)
             self.settings['PROCESSES'] = 2
-            logging.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
+            self.logger_tool.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
         
         if rp.crawl_delay('*'):
-            logging.info(f"* robots.txt -> crawl delay: {rp.crawl_delay('*')}")
+            self.logger_tool.info(f"* robots.txt -> crawl delay: {rp.crawl_delay('*')}")
             self.settings['TIME_SLEEP'] = rp.crawl_delay('*')
             self.settings['PROCESSES'] = 2
-            logging.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
+            self.logger_tool.info(f"* also setting scraper processes to: {self.settings['PROCESSES']}")
         
         if rp.site_maps():
-            logging.info(f"* robots.txt -> sitemaps links: {rp.site_maps()}")
+            self.logger_tool.info(f"* robots.txt -> sitemaps links: {rp.site_maps()}")
             self.settings['SITEMAPS'] = rp.site_maps()
-
+        
         return (rp, force_crawl)
+
+    # Empty file if can't find robots.txt
+    def init_robotstxt(self) -> urllib.robotparser.RobotFileParser:
+        file = "User-agent: *\nAllow: /"
+        
+        rp = urllib.robotparser.RobotFileParser()
+        
+        self.logger_tool.info("Parsing illusion of 'robots.txt'")
+        rp.parse(file)
+
+        if not rp.can_fetch("*", self.settings['DATASET_URL']):
+            self.logger_tool.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
+            exit()
+        else:
+            self.logger_tool.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
+
+        return rp
 
 
     def _check_instance(self, threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
@@ -301,65 +367,89 @@ class ConfigManager:
             not_instance_flag = False
 
             if not isinstance(threads_class, list):
-                logging.warning("Please check param: threads_class")
+                self.logger_tool.warning("Please check param: threads_class")
                 not_instance_flag = True
             if not isinstance(threads_whitelist, list):
-                logging.warning("Please check param: threads_whitelist")
+                self.logger_tool.warning("Please check param: threads_whitelist")
                 not_instance_flag = True
             if not isinstance(threads_blacklist, list):
-                logging.warning("Please check param: threads_blacklist")
+                self.logger_tool.warning("Please check param: threads_blacklist")
                 not_instance_flag = True
             if not isinstance(topic_class, list):
-                logging.warning("Please check param: topic_class")
+                self.logger_tool.warning("Please check param: topic_class")
                 not_instance_flag = True
             if not isinstance(topic_whitelist, list):
-                logging.warning("Please check param: topic_whitelist")
+                self.logger_tool.warning("Please check param: topic_whitelist")
                 not_instance_flag = True
             if not isinstance(topic_blacklist, list):
-                logging.warning("Please check param: topic_blacklist")
+                self.logger_tool.warning("Please check param: topic_blacklist")
                 not_instance_flag = True
             if not isinstance(pagination, list):
-                logging.warning("Please check param: pagination")
+                self.logger_tool.warning("Please check param: pagination")
                 not_instance_flag = True
             if not isinstance(topic_title_class, list):
-                logging.warning("Please check param: topic_title_class")
+                self.logger_tool.warning("Please check param: topic_title_class")
                 not_instance_flag = True
             if not isinstance(content_class, list):
-                logging.warning("Please check param: content_class")
+                self.logger_tool.warning("Please check param: content_class")
                 not_instance_flag = True
             if not_instance_flag == True:
-                logging.warning("Exiting... Check parameters...")
+                self.logger_tool.warning("Exiting... Check logs and parameters...")
+                self.logger_print.warning("Exiting... Check logs and parameters...")
                 exit()
         except Exception as e:
-            logging.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
+            self.logger_tool.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
 
 
     def _print_settings(self) -> None:
 
         to_print = "--- Crawler settings ---"
         for key, value in self.settings.items():
-            to_print = to_print + f"\n{key}: {value}"
+            to_print = to_print + f"\n| {key}: {value}"
 
-        logging.info(to_print)
-        print(to_print)
-        logging.info("--- --- --- --- --- --- ---")
-        print("--- --- --- --- --- --- ---")
+        self.logger_tool.info(to_print.replace("\n", "  "))
+        self.logger_print.info(to_print)
+        self.logger_tool.info("--- --- --- --- --- --- ---")
+        self.logger_print.info("--- --- --- --- --- --- ---")
         time.sleep(2)
 
-
-    def init_robotstxt(self) -> urllib.robotparser.RobotFileParser:
-        file = "User-agent: *\nAllow: /"
+    # Setup logger for logging to file
+    @staticmethod
+    def setup_logger_tool(log_file_path: str, log_lvl):
+        logger_tool = logging.getLogger('sl_forum_tools')
+        logger_tool.setLevel(log_lvl)
         
-        rp = urllib.robotparser.RobotFileParser()
-        
-        logging.info("Parsing illusion of 'robots.txt'")
-        rp.parse(file)
+        # file_handler = logging.StreamHandler()
+        file_handler = logging.FileHandler(log_file_path)
 
-        if not rp.can_fetch("*", self.settings['DATASET_URL']):
-            logging.error(f"ERROR! * robots.txt disallow to scrap this website: {self.settings['DATASET_URL']}")
-            exit()
+        formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
+        file_handler.setFormatter(formatter)
+
+        ctx = multiprocessing.get_context("spawn")
+        ctx.freeze_support()
+        ctx_manager = ctx.Manager()
+        logger_q = ctx_manager.Queue(-1)
+
+        q_listener = QueueListener(logger_q, file_handler)
+        qh = QueueHandler(logger_q)
+        logger_tool.addHandler(qh)
+
+        q_listener.start()
+        
+        return logger_tool, q_listener, logger_q
+
+    # Setup logger for logging to console
+    @staticmethod
+    def setup_logger_print(enable_print: bool):
+        logger_print = logging.getLogger('sl_forum_tools_print')
+        logger_print.setLevel(logging.INFO)
+
+        if enable_print:
+            console_handler = logging.StreamHandler()
         else:
-            logging.info(f"* robots.txt allow to scrap this website: {self.settings['DATASET_URL']}")
+            console_handler = logging.NullHandler()
 
-        return rp
-
+        formatter = logging.Formatter('| %(message)s')
+        console_handler.setFormatter(formatter)
+        logger_print.addHandler(console_handler)
+        return logger_print

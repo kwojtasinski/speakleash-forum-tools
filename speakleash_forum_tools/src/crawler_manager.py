@@ -87,6 +87,9 @@ class CrawlerManager:
     """
     def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager
+        self.logger_tool = self.config_manager.logger_tool
+        self.logger_print = self.config_manager.logger_print
+
         self.files_folder = self.config_manager.files_folder
         self.dataset_folder = self.config_manager.dataset_folder
         self.dataset_name = self.config_manager.settings['DATASET_NAME']
@@ -112,8 +115,8 @@ class CrawlerManager:
         :return: True if found Topics (>0) or False (==0)
         """
         if not self.forum_topics.empty:
-            logging.info("* CralwerManager found file with Topics...")
-            print("* CralwerManager found file with Topics...")
+            self.logger_tool.info("* CralwerManager found file with Topics...")
+            self.logger_print.info("* CralwerManager found file with Topics...")
         else:
 
             if self.config_manager.settings['SITEMAPS']:
@@ -122,32 +125,32 @@ class CrawlerManager:
                 self.sitemaps_url = self.config_manager.main_site
 
             try:
-                logging.info("---------------------------------------------------------------------------------------------------")
-                logging.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
-                print("---------------------------------------------------------------------------------------------------")
-                print("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
+                self.logger_tool.info("---------------------------------------------------------------------------------------------------")
+                self.logger_tool.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
+                self.logger_print.info("---------------------------------------------------------------------------------------------------")
+                self.logger_print.info("* Crawler will try to find and parse Sitemaps (using 'ultimate-sitemap-parser' library)...")
                 forum_tree = self._tree_sitemap(self.sitemaps_url)
                 self.forum_topics['Topic_URLs'] = self._urls_generator(forum_tree = forum_tree, 
                                                              whitelist = self.forum_engine.topics_whitelist, blacklist = self.forum_engine.topics_blacklist, 
                                                              robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
                 self.forum_topics['Topic_Titles'] = ""
                 self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
-                logging.info("---------------------------------------------------------------------------------------------------")
-                print("---------------------------------------------------------------------------------------------------")
+                self.logger_tool.info("---------------------------------------------------------------------------------------------------")
+                self.logger_print.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:
-                logging.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
+                self.logger_tool.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
 
             if self.forum_topics.empty:
-                logging.warning(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {self.forum_engine.engine_type}")
-                print(f"* Crawler did not find any Topics URLs... -> checking manually using engine for: {self.forum_engine.engine_type}")
+                self.logger_tool.warning(f"* Crawler did not find any Topics URLs in stemaps... -> checking manually using engine for: {self.forum_engine.engine_type}")
+                self.logger_print.info(f"* Crawler did not find any Topics URLs in stemaps... -> checking manually using engine for: {self.forum_engine.engine_type}")
 
                 if self.forum_engine.crawl_forum():
                     self.forum_topics['Topic_URLs'] = self.forum_engine.get_topics_urls_only()
                     self.forum_topics['Topic_Titles'] = self.forum_engine.get_topics_titles_only()
                     self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
 
-        logging.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
-        print(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
+        self.logger_tool.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
+        self.logger_print.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
 
         if self.forum_topics.shape[0] > 0:
             # Saving Topics to CSV
@@ -163,12 +166,13 @@ class CrawlerManager:
         :return: Pandas DataFrame with columns: ['Topic_URLs','Topic_Titles'] .
         """
         if self.visited_topics.empty:
-            logging.info(f"* Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
+            self.logger_tool.info(f"* Return Topics DataFrame: {self.forum_topics.shape[0]} URLs")
             return self.forum_topics
         else:
             #TODO: Zastanowic sie nad:: where(self.visited_topics['Visited_flag'] == 1 & self.visited_topics['Skip_flag'] == 0)     # Skip "1" jest z roznych powodow, np. error albo brak tekstu / Skip "0" to strona na ktorej byl tekst
             topics_minus_visited = self.forum_topics[~self.forum_topics['Topic_URLs'].isin(self.visited_topics['Topic_URLs'].where(self.visited_topics['Visited_flag'] == 1))]
-            logging.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
+            self.logger_tool.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
+            self.logger_print.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
             return topics_minus_visited
 
     def _tree_sitemap(self, url: str):
@@ -182,8 +186,8 @@ class CrawlerManager:
         start_time = time.perf_counter()
         forum_tree = sitemap_tree_for_homepage(url)
         end_time = time.perf_counter()
-        logging.info(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
-        print(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
+        self.logger_tool.info(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
+        self.logger_print.info(f"* Crawler - Sitemaps parsing = DONE || Time = {(end_time - start_time):.2f} sec = {((end_time - start_time) / 60):.2f} min")
         return forum_tree
 
     def _urls_generator(self, forum_tree, whitelist: List[str], blacklist: List[str], robotparser, force_crawl: bool = False) -> list[str]:
@@ -202,31 +206,31 @@ class CrawlerManager:
                 if any(url_part in page.url for url_part in whitelist):
                     if blacklist:
                         if any(url_part in page.url for url_part in blacklist):
-                            logging.debug(f"URL OUT <- {page.url}")
+                            self.logger_tool.debug(f"URL OUT <- {page.url}")
                             continue
                     if robotparser.can_fetch("*", page.url) or force_crawl == True:
-                        logging.debug(f"URL GOOD -> {page.url}")
+                        self.logger_tool.debug(f"URL GOOD -> {page.url}")
                         urls_expected.append(page.url)
                     else:
-                        logging.debug(f"URL OUT <- {page.url}")
+                        self.logger_tool.debug(f"URL OUT <- {page.url}")
                     continue
                 else:
-                    logging.debug(f"URL OUT <- {page.url}")
+                    self.logger_tool.debug(f"URL OUT <- {page.url}")
                     continue
             if blacklist:
                 if any(url_part in page.url for url_part in blacklist):
-                    logging.debug(f"URL OUT <- {page.url}")
+                    self.logger_tool.debug(f"URL OUT <- {page.url}")
                     continue
                         
             if not whitelist or not blacklist:
                 if robotparser.can_fetch("*", page.url) or force_crawl == True:
-                    logging.debug(f"URL GOOD (+) -> {page.url}")
+                    self.logger_tool.debug(f"URL GOOD (+) -> {page.url}")
                     urls_expected.append(page.url)
                 else:
-                    logging.debug(f"URL OUT (+) <- {page.url}")
+                    self.logger_tool.debug(f"URL OUT (+) <- {page.url}")
 
         urls_expected = list(set(urls_expected))
-        logging.debug(f"CRAWLER // URL Generator -> URLs_expected: {len(urls_expected)}")
+        self.logger_tool.debug(f"CRAWLER // URL Generator -> URLs_expected: {len(urls_expected)}")
         return urls_expected
     
 
@@ -250,25 +254,25 @@ class CrawlerManager:
         visited_links = pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
 
         if os.path.exists(dataset_folder):
-            logging.info(f"* Folder for [{dataset_name}] exist -> Checking files...")
+            self.logger_tool.info(f"* Folder for [{dataset_name}] exist -> Checking files...")
             # Check if file with Topics URLs exists
             if os.path.exists(os.path.join(dataset_folder, topics_urls_filename)):
                 # Read parsed Topics URLs
                 topics_links = pandas.read_csv(os.path.join(dataset_folder, topics_urls_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles'], index_col = None)
-                logging.info(f"Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape} | Size in memory (MB): {(topics_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
-                print(f"* Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape}")
+                self.logger_tool.info(f"Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape} | Size in memory (MB): {(topics_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
+                self.logger_print.info(f"* Imported Topics URLs for: [{dataset_name}] | Shape: {topics_links.shape}")
             else:
-                logging.info(f"File with Topics URLs not found... [{topics_urls_filename}]")
+                self.logger_tool.info(f"File with Topics URLs not found... [{topics_urls_filename}]")
 
             if os.path.exists(os.path.join(dataset_folder, topics_visited_filename)):
                 # Read scraped Visited Topics URLs
                 visited_links = pandas.read_csv(os.path.join(dataset_folder, topics_visited_filename), sep = '\t', header = 0, names = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
-                logging.info(f"Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape} | Size in memory (MB): {(visited_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
-                print(f"* Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape}")
+                self.logger_tool.info(f"Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape} | Size in memory (MB): {(visited_links.memory_usage(deep=True).sum() / pow(10,6)):.3f}")
+                self.logger_print.info(f"* Imported Visited Topics URLs for: {dataset_name} | Shape: {visited_links.shape}")
             else:
-                logging.info(f"File with Visited Topics URLs not found... [{topics_visited_filename}]")
+                self.logger_tool.info(f"File with Visited Topics URLs not found... [{topics_visited_filename}]")
         else:
-            logging.warning(f"* Can't find folder for [{dataset_name}]... -> Create new folder...")
+            self.logger_tool.warning(f"* Can't find folder for [{dataset_name}]... -> Create new folder...")
             os.makedirs(dataset_folder)
 
         if not topics_links.empty:

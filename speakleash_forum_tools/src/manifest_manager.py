@@ -22,7 +22,6 @@ Dependencies:
 """
 import os
 import json
-import logging
 
 from speakleash_forum_tools.src.config_manager import ConfigManager
 
@@ -36,10 +35,13 @@ class ManifestManager:
         :param total_docs (int): Number of documents in merged (*.jsonl.zst) dataset file.
         :param total_characters (int): Number of characters in merged (*.jsonl.zst) dataset file.
         """
+        self.logger_tool = config_manager.logger_tool
+        self.logger_print = config_manager.logger_print
+        
         self.manifest_created: bool = self.create_manifest(config_manager, directory_to_save, total_docs, total_characters)
         if self.manifest_created:
-            logging.info("* Manifest created (in directory with merged archive)")
-            print("* Manifest created (in directory with merged archive)")
+            self.logger_tool.info("* Manifest created (in directory with merged archive)")
+            self.logger_print.info("* Manifest created (in directory with merged archive)")
 
 
     ### Functions ###
@@ -93,18 +95,18 @@ class ManifestManager:
             try:
                 json_manifest = json.dumps(manifest, indent = 4)
             except Exception as e:
-                logging.error(f"Manifest // Error while json.dumps: {str(e)}")
+                self.logger_tool.error(f"Manifest // Error while json.dumps: {str(e)}")
                 return e
 
             try:
                 with open(os.path.join(directory_to_save, manifest_filename), 'w') as mf:
                     mf.write(json_manifest)
             except Exception as e:
-                logging.error(f"Manifest // Error while writing json file: {str(e)}")
+                self.logger_tool.error(f"Manifest // Error while writing json file: {str(e)}")
                 return e
             
         except Exception as e:
-            logging.error(f"Manifest // Error while creating manifest!!! | Error: {str(e)}")
+            self.logger_tool.error(f"Manifest // Error while creating manifest!!! | Error: {str(e)}")
             return False
 
         return True 
