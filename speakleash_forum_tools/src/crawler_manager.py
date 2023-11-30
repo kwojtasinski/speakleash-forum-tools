@@ -144,15 +144,20 @@ class CrawlerManager:
                 self.logger_print.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:
                 self.logger_tool.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
+                self.logger_print.error(f"CRAWLER: Error while searching and parsing Sitemaps: {e}")
 
             if self.forum_topics.empty:
                 self.logger_tool.warning(f"* Crawler did not find any Topics URLs in stemaps... -> checking manually using engine for: {self.forum_engine.engine_type}")
                 self.logger_print.info(f"* Crawler did not find any Topics URLs in stemaps... -> checking manually using engine for: {self.forum_engine.engine_type}")
 
-                if self.forum_engine.crawl_forum():
-                    self.forum_topics['Topic_URLs'] = self.forum_engine.get_topics_urls_only()
-                    self.forum_topics['Topic_Titles'] = self.forum_engine.get_topics_titles_only()
-                    self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
+                try:
+                    if self.forum_engine.crawl_forum():
+                        self.forum_topics['Topic_URLs'] = self.forum_engine.get_topics_urls_only()
+                        self.forum_topics['Topic_Titles'] = self.forum_engine.get_topics_titles_only()
+                        self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
+                except Exception as e:
+                    self.logger_tool.error(f"CRAWLER: Error while crawling: {e}")
+                    self.logger_print.error(f"CRAWLER: Error while crawling: {e}")
 
         self.logger_tool.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")
         self.logger_print.info(f"* Crawler (Manager) found: Topics = {self.forum_topics.shape[0]}")

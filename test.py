@@ -11,8 +11,8 @@ if __name__ == "__main__":
     #+ config_manager = ConfigManager(dataset_url='https://max3d.pl/forums/', forum_engine='invision')          # Topics to find = 85.5k (from dashboard) == to big for testing manual crawler
 
     ### Engine: phpBB 
-    config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb', time_sleep=0.5, processes=1)      # Topics to find = 21 669 (calc from website) == almost all
-    #+ config_manager = ConfigManager(dataset_url="https://www.gry-planszowe.pl", forum_engine='phpbb', log_lvl='DEBUG')         # Topics to find = 24 596 (calc from website) == almost all
+    #+ config_manager = ConfigManager(dataset_url="https://forum.prawojazdy.com.pl", forum_engine='phpbb', time_sleep=0.5, processes=6, log_lvl='DEBUG')      # Topics to find = 21 669 (calc from website) == almost all
+    config_manager = ConfigManager(dataset_url="https://www.gry-planszowe.pl", forum_engine='phpbb', log_lvl='DEBUG')         # Topics to find = 24 596 (calc from website) == almost all
     #+ config_manager = ConfigManager(dataset_url="https://www.excelforum.pl", forum_engine='phpbb', log_lvl='DEBUG')            # Topics to find = 58 414 (calc from website) == 48k found
 
     ### Engine: ipboard

@@ -85,7 +85,8 @@ class Scraper:
                                              visited_topics = self.crawler.visited_topics)
         except Exception as e:
             self.logger_tool.error(f"Error in SCRAPER -> Error: {e}")
-            total_docs: int = 0
+            self.logger_print.error(f"Error in SCRAPER -> Error: {e}")
+            total_docs = 0
 
         self.logger_tool.info(f"*** Scraper found documents: {total_docs}")
         self.logger_print.info(f"* Scraper found documents: {total_docs}")
@@ -419,6 +420,7 @@ class Scraper:
 
                         # Save visited URLs to file
                         if total % self.config.settings["SAVE_STATE"] == 0 and added > 0:
+                            self.logger_tool.info("SCRAPE // ------------------------------------------------------------------- ")
                             self.logger_tool.info(f"SCRAPE // Scraping info --> Checked URLs: {total_visited + total} | Added docs: {total_docs}")
                             self.logger_tool.info(f"SCRAPE // This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
                             self.logger_tool.info(f"SCRAPE // Since last checkpoint --> Checked URLs: {total-total_checkpoint} | Added: {added-added_checkpoint}  | Skipped: {skipped-skipped_checkpoint}")
@@ -446,6 +448,7 @@ class Scraper:
 
                 except Exception as e:
                     self.logger_tool.error(f"*** ERROR *** --> {str(e)}")
+                    self.logger_print.error(f"*** ERROR *** --> {str(e)}")
 
                 self.logger_tool.info(f"SCRAPE // Scraping DONE! --> Checked URLs: {total_visited + total} | Added docs: {total_docs} ||| This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
                 self.logger_print.info(f"* Scraping DONE! --> Checked URLs: {total_visited + total} | Added docs: {total_docs} ||| This session --> Checked URLs: {total} | Added: {added}  | Skipped: {skipped}")
