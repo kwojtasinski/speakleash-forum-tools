@@ -1,10 +1,14 @@
 """
 Forum Engines Manager Module
 
-This module contains the ForumEnginesManager class, which is designed to facilitate the crawling of different types of forum engines. 
-It orchestrates the process of identifying and navigating through various forum structures to extract threads, topics, and handle pagination effectively.
-The ForumEnginesManager class dynamically selects an appropriate crawler based on the forum engine type (e.g., Invision, phpBB, IPBoard, XenForo) 
-and configures it with specific CSS selectors and criteria to ensure accurate data extraction. This flexibility allows it to adapt to the unique characteristics of each forum engine.
+This module contains the ForumEnginesManager class, which is designed to facilitate 
+the crawling of different types of forum engines. It orchestrates the process 
+of identifying and navigating through various forum structures to extract 
+threads, topics, and handle pagination effectively. The ForumEnginesManager class 
+dynamically selects an appropriate crawler based on the forum engine type 
+(e.g., Invision, phpBB, IPBoard, XenForo) and configures it with specific CSS selectors 
+and criteria to ensure accurate data extraction. 
+This flexibility allows it to adapt to the unique characteristics of each forum engine.
 
 Classes:
 - ForumEnginesManager: Manages crawling processes across various forum engine types. 
@@ -474,7 +478,7 @@ class InvisionCrawler:
         self.topics_whitelist: List[str] = ["topic"]
         self.topics_blacklist: List[str] = ["page", "#comments"]
         self.pagination: List[str] = ["ipsPagination_next"]             # Used for subforums and topics pagination
-        self.topic_title_class: List[str] = ["h1 >> class :: ipsType_pageTitle ipsContained_container"]
+        self.topic_title_class: List[str] = ["h1 >> class :: ipsType_pageTitle ipsContained_container"]  # Used for topic title on topic 1-st page
         self.content_class: List[str] = ["div >> data-role :: commentContent"]  # Used for content_class
 
 class PhpBBCrawler:
@@ -482,45 +486,45 @@ class PhpBBCrawler:
     Specific functionalities for phpBB forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["a >> class :: forumtitle", "a >> class :: forumlink"]     # Used for threads
-        self.topics_class: List[str] = ["a >> class :: topictitle"]                        # Used for topics
+        self.threads_class: List[str] = ["a >> class :: forumtitle", "a >> class :: forumlink"]  # Used for threads
+        self.topics_class: List[str] = ["a >> class :: topictitle"]  # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
-        self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]
-        self.content_class: List[str] = ["div >> class :: content"]                      # Used for content_class / messages
+        self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]  # Used for topic title on topic 1-st page
+        self.content_class: List[str] = ["div >> class :: content", "span >> class :: postbody"]  # Used for content_class / messages
 
 class IPBoardCrawler:
     """
     Specific functionalities for IPBoard forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["td >> class :: col_c_forum"]                     # Used for threads
-        self.topics_class: List[str] = ["a >> class :: topic_title"]                       # Used for topics
+        self.threads_class: List[str] = ["td >> class :: col_c_forum"]  # Used for threads
+        self.topics_class: List[str] = ["a >> class :: topic_title"]  # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
-        self.pagination: List[str] = ["next"]                           # Used for subforums and topics pagination
-        self.topic_title_class: List[str] = []
-        self.content_class: List[str] = ["post entry-content_class"]           # Used for content_class / messages
+        self.pagination: List[str] = ["next"]  # Used for subforums and topics pagination
+        self.topic_title_class: List[str] = ["h1 >> class :: ipsType_pagetitle"]  # Used for topic title on topic 1-st page
+        self.content_class: List[str] = ["div >> class :: post entry-content"]  # Used for content_class / messages
 
 class XenForoCrawler:
     """
     Specific functionalities for XenForo forums
     """
     def __init__(self):
-        self.threads_class: List[str] = ["h3 >> class :: node-title"]                        # Used for threads
-        self.topics_class: List[str] = ["div >> class :: structItem-title"]                  # Used for topics
+        self.threads_class: List[str] = ["h3 >> class :: node-title"]  # Used for threads
+        self.topics_class: List[str] = ["div >> class :: structItem-title"]  # Used for topics
         self.threads_whitelist: List[str] = []
         self.threads_blacklist: List[str] = ["prefix_id"]
         self.topics_whitelist: List[str] = ["threads"]
         self.topics_blacklist: List[str] = ["preview"]
         self.pagination: List[str] = ["pageNav-jump pageNav-jump--next"]  # Used for subforums and topics pagination
-        self.topic_title_class: List[str] = ["h1 >> class :: p-title-value"]
-        self.content_class: List[str] = ["article >> class :: message-body js-selectToQuote"]        # Used for content_class / messages
+        self.topic_title_class: List[str] = ["h1 >> class :: p-title-value"]  # Used for topic title on topic 1-st page
+        self.content_class: List[str] = ["article >> class :: message-body js-selectToQuote"]  # Used for content_class / messages
 
 class UnsupportedCrawler:
     """

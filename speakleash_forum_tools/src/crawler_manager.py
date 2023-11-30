@@ -28,8 +28,11 @@ Classes:
   efficient data extraction.
 
 Dependencies:
-- usp (ultimate-sitemap-parser) - Provides good parser for sitemap.xml files (XML, GZIP etc.). Used fork with adopted XML files packed into PHP files - https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser
-- pandas - Provides an easy-to-use DataFrame structure for simple management of collected data. (In future: polars - less memory allocated by DataFrame)
+- usp (ultimate-sitemap-parser) - Provides good parser for sitemap.xml files (XML, GZIP etc.). 
+    Used fork with adopted XML files packed into PHP files - 
+    https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser
+- pandas - Provides an easy-to-use DataFrame structure for simple management of collected data. 
+    (In future: polars - less memory allocated by DataFrame)
 - logging - For tracking and logging the crawling process.
 - requests, urllib, BeautifulSoup -  For web requests and HTML parsing.
 """
@@ -50,7 +53,8 @@ from speakleash_forum_tools.src.archive_manager import ArchiveManager
 
 class CrawlerManager:
     """
-    Crawler Manager class handle crawling on given forum website - using sitemaps (if found) or manual crawling using ForumEnginesManager class.
+    Crawler Manager class handle crawling on given forum website - using sitemaps (if found) 
+    or manual crawling using ForumEnginesManager class.
     Import all settings from ConfigManager class, process website and return Topic URLs list.
 
     How it works:
@@ -59,7 +63,8 @@ class CrawlerManager:
     3) Checks if sitemaps are in other places or if they exist at all
     4) If sitemaps exist it parses them using the appropriate engine / library
     5) If sitemaps do not exist then it uses the forum crawl engine from the ForumEnginesManager class.
-    6) If there are pages / topics to crawl then it displays the number of them and returns a list of URLs (optionally with topic names if collected manually)
+    6) If there are pages / topics to crawl then it displays the number of them and returns a list of URLs 
+        (optionally with topic names if collected manually)
     7) Updates all settings for further process -> scraping
 
     :param config_manager (ConfigManager): Configuration class, containing settings with keys like 'FORUM_ENGINE', 'DATASET_URL', etc.
@@ -78,7 +83,8 @@ class CrawlerManager:
         e.g. ["topic"] (for Invision engine)
     - topics_blacklist (List[str]): but sometimes whitelist is not enough, 
         e.g. ["page", "#comments"] (for Invision engine)
-    - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
+    - pagination (List[str]): "<attribute_value>" (when attribute_name is 'class'), 
+        "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
         or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
     - topic_title_class (List[str]): Searched for first instance -> "<anchor_tag> >> <attribute_name> :: <attribute_value>"
         e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
@@ -97,8 +103,8 @@ class CrawlerManager:
         self.files_folder = self.config_manager.files_folder
         self.dataset_folder = self.config_manager.dataset_folder
         self.dataset_name = self.config_manager.settings['DATASET_NAME']
-        self.topics_dataset_file = f"Topics_URLs_-_{self.dataset_name}.csv"
-        self.topics_visited_file = f"Visited_URLs_-_{self.dataset_name}.csv"
+        self.topics_dataset_file = self.config_manager.topics_dataset_file
+        self.topics_visited_file = self.config_manager.topics_visited_file
 
         self.forum_topics, self.visited_topics = self._check_dataset_files(self.dataset_name, self.topics_dataset_file, self.topics_visited_file)
 
@@ -184,10 +190,19 @@ class CrawlerManager:
             self.logger_tool.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
             self.logger_print.info(f"* Return [Topics - Visited] DataFrame: {topics_minus_visited.shape[0]} URLs")
             return topics_minus_visited
+        
+    def get_visited_urls(self) -> pandas.DataFrame:
+        """
+        Get visited URLs (visited topics URL).
+
+        :return: Pandas DataFrame with columns: ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag']
+        """
+        return self.visited_topics
 
     def _tree_sitemap(self, url: str):
         """
-        Uses the Ulitmate Sitemap Parser's (Samox1 fork with extended search for XML and PHP files) sitemap_tree_for_homepage method to get the sitemap and extract all the URLs.
+        Uses the Ulitmate Sitemap Parser's (Samox1 fork with extended search for XML and PHP files) 
+        sitemap_tree_for_homepage method to get the sitemap and extract all the URLs.
 
         :param url (str): Website URL to get sitemap.
 
@@ -204,7 +219,8 @@ class CrawlerManager:
         """
         Uses the Ulitmate Sitemap Parser's sitemap_tree_for_homepage method to get the sitemap and extract all the URLs.
 
-        :param forum_tree (AbstractSitemap): Tree of AbstractSitemap subclass objects that represent the sitemap hierarchy found on the website.
+        :param forum_tree (AbstractSitemap): Tree of AbstractSitemap subclass objects 
+            that represent the sitemap hierarchy found on the website.
 
         :return: Extract all urls to scrap (list[str]).
         """
@@ -253,8 +269,10 @@ class CrawlerManager:
         1) forum urls - if not create sitemaps tree -> generate urls -> save to file.
         2) visited urls - if not create empty file.
 
-        :param crawl_urls_filename (str): Filename for CSV file with topics urls --> 3 columns = ['Topic_URLs', 'Topic_Titles'] (sep = '\t').
-        :param visited_filename (str): Filename for CSV file with visited urls --> 3 columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'] (sep = '\t').
+        :param crawl_urls_filename (str): Filename for CSV file with topics urls 
+            --> 3 columns = ['Topic_URLs', 'Topic_Titles'] (sep = '\t').
+        :param visited_filename (str): Filename for CSV file with visited urls 
+            --> 3 columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'] (sep = '\t').
 
         Returns
         -------

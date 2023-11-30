@@ -34,6 +34,9 @@ class ManifestManager:
         :param directory_to_save (str): Path to directory where to save *.manifest .
         :param total_docs (int): Number of documents in merged (*.jsonl.zst) dataset file.
         :param total_characters (int): Number of characters in merged (*.jsonl.zst) dataset file.
+
+        Attributes:
+        - manifest_created (bool): True if manifest was created without issues.
         """
         self.logger_tool = config_manager.logger_tool
         self.logger_print = config_manager.logger_print

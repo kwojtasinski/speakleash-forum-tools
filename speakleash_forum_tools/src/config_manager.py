@@ -1,7 +1,8 @@
 """
 Config Manager Module
 
-This module defines the `ConfigManager` class, which serves as a centralized manager for configuring and managing settings for a forum crawler and scraper. 
+This module defines the `ConfigManager` class, which serves as a centralized manager 
+for configuring and managing settings for a forum crawler and scraper. 
 The `ConfigManager` class offers a comprehensive setup for various parameters required for crawling and scraping forums. 
 It supports various forum engines, adheres to `robots.txt` policies, and handles command-line arguments for flexibility and customization.
 
@@ -39,7 +40,7 @@ import urllib.robotparser
 from urllib.parse import urlparse, urljoin
 from typing import Optional, Tuple, List
 
-from speakleash_forum_tools.src.utils import check_for_library_updates
+from speakleash_forum_tools.src.utils import check_for_library_updates, create_session
 
 
 class ConfigManager:
@@ -55,32 +56,40 @@ class ConfigManager:
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
-        Params:
-            - dataset_url (str): The base URL of the dataset/forum to be crawled.
-            - dataset_category (str): The category of the dataset/forum.
-            - forum_engine (str): The forum engine used on website: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']
-            - arg_parser (bool): Flag to determine if command-line arguments should be parsed.
-            - check_robots (bool): Flag to determine if robots.txt should be checked.
-            - force_crawl (bool): Flag to force crawling even if disallowed by robots.txt.
-            - processes (int): Number of processes to use for multiprocessing.
-            - time_sleep (float): Time in seconds to sleep between requests.
-            - save_state (int): Interval at which to save crawling state.
-            - min_len_txt (int): Minimum length of text to consider as valid data.
-            - threads_class (List[str]): HTML selectors used for identifying thread links in the forum. 
-                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: forumtitle"] (for phpBB engine).
-            - topics_class (List[str]): HTML selectors used for identifying topic links within a thread. 
-                "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: topictitle"] (for phpBB engine)
-            - threads_whitelist (List[str]): List of substrings; only threads whose URLs contain any of these substrings will be processed. Example for Invision forum: ["forum"].
-            - threads_blacklist (List[str]): List of substrings; threads whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["topic"].
-            - topics_whitelist (List[str]): List of substrings; only topics whose URLs contain any of these substrings will be processed. Example for Invision forum: ["topic"].
-            - topics_blacklist (List[str]): List of substrings; topics whose URLs contain any of these substrings will be ignored. Example for Invision forum: ["page", "#comments"].
-            - pagination (List[str]): HTML selectors used for identifying pagination elements within threads or topics.
-                "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div']) 
-                or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
-            - topic_title_class (List[str]): HTML selector for topic title on topic website. Searche for first instance -> "<anchor_tag> >> <attribute_name> :: <attribute_value>"
-                e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
-            - content_class (List[str]): HTML selectors used for identifying the main content within a topic. "<anchor_tag> >> <attribute_name> :: <attribute_value>", 
-                e.g. ["content_class"] (for phpBB engine)
+        :param dataset_url (str): The base URL of the dataset or forum to be processed.
+        :param dataset_category (str): The category of the dataset, e.g., 'Forum'.
+        :param forum_engine (str): The type of forum engine: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other'].
+        :param dataset_name (str): Optional custom name for the dataset.
+        :param arg_parser (bool): Flag to enable command-line argument parsing.
+        :param check_robots (bool): Flag to check and adhere to the forum's robots.txt.
+        :param force_crawl (bool): Flag to force crawling even if disallowed by robots.txt.
+        :param processes (int): The number of processes to use for multiprocessing.
+        :param time_sleep (float): Time delay between requests during crawling.
+        :param save_state (int): Checkpoint interval for saving the crawling progress.
+        :param min_len_txt (int): Minimum length of text to consider valid for scraping.
+        :param sitemaps (str): Custom sitemaps to be used for crawling.
+        :param log_lvl: The logging level for logging operations.
+        :param print_to_console (bool): Flag to enable or disable console logging.
+        :param threads_class (List[str]): HTML selectors used for identifying thread links in the forum.
+            "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: forumtitle"] (for phpBB engine).
+        :param topics_class (List[str]): HTML selectors used for identifying topic links within a thread.
+            "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: topictitle"] (for phpBB engine)
+        :param threads_whitelist (List[str]): List of substrings; only threads whose URLs contain 
+            any of these substrings will be processed. Example for Invision forum: ["forum"].
+        :param threads_blacklist (List[str]): List of substrings; threads whose URLs contain 
+            any of these substrings will be ignored. Example for Invision forum: ["topic"].
+        :param topics_whitelist (List[str]): List of substrings; only topics whose URLs contain 
+            any of these substrings will be processed. Example for Invision forum: ["topic"].
+        :param topics_blacklist (List[str]): List of substrings; topics whose URLs contain 
+            any of these substrings will be ignored. Example for Invision forum: ["page", "#comments"].
+        :param pagination (List[str]): HTML selectors used for identifying pagination elements within threads or topics.
+            "<attribute_value>" (when attribute_name is 'class'), "<attribute_name> :: <attribute_value>" (if anchor_tag is ['li', 'a', 'div'])
+            or "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["arrow next", "right-box right", "title :: Dalej"] (for phpBB engine)
+        :param topic_title_class (List[str]): HTML selector for topic title on topic website. 
+            Search for first instance -> "<anchor_tag> >> <attribute_name> :: <attribute_value>"
+            e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
+        :param content_class (List[str]): HTML selectors used for identifying the main content within a topic. 
+            "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["content_class"] (for phpBB engine)
 
         Attributes:
         - settings (dict): A dictionary of all the settings for the crawler.
@@ -141,6 +150,9 @@ class ConfigManager:
         else:
             self.robot_parser = self.init_robotstxt()
             self.force_crawl = True
+
+        self.topics_dataset_file = f"Topics_URLs_-_{self.settings['DATASET_NAME']}.csv"     # columns=['Topic_URLs', 'Topic_Titles']
+        self.topics_visited_file = f"Visited_URLs_-_{self.settings['DATASET_NAME']}.csv"    # columns=['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag']
 
         self._print_settings()
 
@@ -259,8 +271,7 @@ class ConfigManager:
                     content = response.read().decode("latin-1")
         
                 if not content:
-                    import requests
-                    session_obj = requests.Session()
+                    session_obj = create_session()
                     response = session_obj.get(robots_url, headers=self.headers)
                     try:
                         content = response.content.decode("utf-8")
@@ -284,8 +295,7 @@ class ConfigManager:
                     content = response.read().decode("latin-1")
                 
                 if not content:
-                    import requests
-                    session_obj = requests.Session()
+                    session_obj = create_session()
                     response = session_obj.get(robots_url, headers=self.headers)
                     try:
                         content = response.content.decode("utf-8")

@@ -49,7 +49,7 @@ class ArchiveManager:
         2.c) merge archives after scraping
     3) prepare Archive (with path to specific folder)
     """
-    def __init__(self, dataset_name: str, dataset_folder: str, visited_filename: str, logger_tool: logging.Logger, logger_print: logging.Logger, print_to_console: bool):
+    def __init__(self, dataset_name: str, dataset_folder: str, logger_tool: logging.Logger, logger_print: logging.Logger, print_to_console: bool):
         """
         ArchiveManager class provides simple functions for managing Archive and everything around this topic.
         Import important names and paths, process some more paths and prepare Archive class.
@@ -69,9 +69,6 @@ class ArchiveManager:
         self.temp_data_path = os.path.join(self.dataset_folder, 'temp_scraper_data')
         self.merged_archive_path = os.path.join(self.dataset_folder, 'archive_merged-JSONL_ZST')
         
-        self.visited_filename = visited_filename            # File with visited URLs
-        # self.create_visited_empty_file()                    # Important - Create file for visited URLs
-
         self._create_archive_folder()                       # Create folder for Archive (temp_scraper_data)
         self.archive = Archive(self.temp_data_path)         # Archive - manager for temporary chunks of archives
         
@@ -87,34 +84,6 @@ class ArchiveManager:
                 self.logger_print.info(f"* Created archive folder at {self.temp_data_path}")
         except Exception as e:
             self.logger_tool.error(f"Archive // Error while checking or creating folder for 'temp_scraper_data' -> {e}")
-
-    def add_to_visited_file(self, urls_dataframe: pandas.DataFrame, file_name: str = "", head = False, mode = 'a') -> None:
-        """
-        Append visited URLs to CSV file (in dataset folder).
-
-        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
-        :param file_name (str): Name of CSV file.
-        :param head (bool): True / False - if use header in df.to_csv function.
-        :param mode (char): Mode to use while opening file in df.to_csv function.
-        """
-        if not file_name:
-            file_name = self.visited_filename
-        urls_dataframe.to_csv(os.path.join(self.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
-        self.logger_tool.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
-
-    def create_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
-        """
-        Create empty CSV file (in dataset folder) for given DataFrame 
-        - use DataFrame to write columns names to file.
-
-        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
-        :param file_name (str): Name of CSV file.
-        """
-        if os.path.exists(os.path.join(self.dataset_folder, file_name)):
-            self.logger_tool.debug("Archive // File with visited URLs exist")
-        else:
-            self.logger_tool.debug("Archive // File with visited URLs don't exist - creating new file")
-            self.add_to_visited_file(urls_dataframe = urls_dataframe, file_name = file_name, head = True, mode = 'w')
 
     def merge_archives(self) -> Tuple[str, int, int]:
         """

@@ -1,18 +1,25 @@
 """
 Scraper Module
 
-This module provides a comprehensive solution for web scraping activities, particularly focused on forum data extraction. It encapsulates the scraping logic within the Scraper class, which utilizes multiprocessing to efficiently handle large-scale data scraping tasks.
+This module provides a comprehensive solution for web scraping activities, 
+particularly focused on forum data extraction. It encapsulates the scraping logic 
+within the Scraper class, which utilizes multiprocessing to efficiently handle large-scale data scraping tasks.
 
 Classes:
-- Scraper: A class designed to manage the scraping process. It utilizes multiprocessing techniques to optimize the scraping of text data from web pages, handling the complexities of concurrent data processing.
+- Scraper: A class designed to manage the scraping process. It utilizes multiprocessing techniques 
+to optimize the scraping of text data from web pages, handling the complexities of concurrent data processing.
 
 Dependencies:
 - multiprocessing: Utilized for creating a pool of processes to enable concurrent scraping of data.
 - Pool from multiprocessing: Used for managing a pool of worker processes.
 - Other relevant libraries (e.g., requests, BeautifulSoup) as needed for web scraping.
 
-The Scraper class within this module is responsible for setting up a multiprocessing environment to concurrently process multiple web scraping tasks. It includes methods for initializing the scraping process, handling individual scraping tasks, and managing the results. The class is designed to be adaptable to various scraping requirements, with a focus on efficiency and robust error handling.
+The Scraper class within this module is responsible for setting up a multiprocessing environment 
+to concurrently process multiple web scraping tasks. It includes methods for initializing 
+the scraping process, handling individual scraping tasks, and managing the results. 
+The class is designed to be adaptable to various scraping requirements, with a focus on efficiency and robust error handling.
 """
+import os
 import time
 import logging
 from logging.handlers import QueueHandler
@@ -56,23 +63,25 @@ class Scraper:
         _scrap_txt_mp: Orchestrates the scraping process using multiprocessing.
     """
     def __init__(self, config_manager: ConfigManager, crawler_manager: CrawlerManager):
-        self.config = config_manager
+        self.config: ConfigManager = config_manager
         self.logger_tool = self.config.logger_tool
         self.logger_print = self.config.logger_print
 
         self.crawler = crawler_manager
 
-        self.arch_manager = ArchiveManager(self.crawler.dataset_name, self.crawler._get_dataset_folder(), self.crawler.topics_visited_file,
-                                           logger_tool = self.logger_tool, logger_print = self.logger_print, print_to_console = self.config.print_to_console)
-        self.arch_manager.create_empty_file(self.crawler.visited_topics, self.crawler.topics_visited_file)
-        self.archive = self.arch_manager.archive
-        
-        self.text_separator = '\n'
+        self.arch_manager = ArchiveManager(self.config.settings['DATASET_NAME'], self.config.dataset_folder,
+                                           logger_tool = self.logger_tool, logger_print = self.logger_print,
+                                           print_to_console = self.config.print_to_console)
+        self.archive: Archive = self.arch_manager.archive
+        self.create_empty_file(pandas.DataFrame(columns=['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag']),
+                               self.config.topics_visited_file)
+
+        self.text_separator: str = '\n'
 
 
     ### Functions ###
 
-    def start_scraper(self, urls_to_scrap: pandas.DataFrame) -> int:
+    def start_scraper(self, urls_to_scrap: pandas.DataFrame, visited_urls: pandas.DataFrame) -> int:
         """
         Initiates the scraping process and returns the total number of documents scraped.
 
@@ -82,7 +91,7 @@ class Scraper:
         try:
             total_docs: int = self._scrap_txt_mp(ar = self.archive,
                                              topics_minus_visited = urls_to_scrap,
-                                             visited_topics = self.crawler.visited_topics)
+                                             visited_topics = visited_urls)
         except Exception as e:
             self.logger_tool.error(f"Error in SCRAPER -> Error: {e}")
             self.logger_print.error(f"Error in SCRAPER -> Error: {e}")
@@ -429,7 +438,7 @@ class Scraper:
                             skipped_checkpoint = skipped
 
                             # self.logger_tool.info(f"SCRAPE // Saving visited URLs to file, visited: {visited_urls_dataframe.shape[0]}")
-                            self.arch_manager.add_to_visited_file(visited_urls_dataframe)
+                            self.add_to_visited_file(visited_urls_dataframe)
                             visited_urls_dataframe = pandas.DataFrame(columns = ['Topic_URLs', 'Topic_Titles', 'Visited_flag', 'Skip_flag'])
 
                             ar.commit()
@@ -455,7 +464,7 @@ class Scraper:
 
                 # Saving Archive and visited URLs
                 ar.commit()
-                self.arch_manager.add_to_visited_file(visited_urls_dataframe)
+                self.add_to_visited_file(visited_urls_dataframe)
                 self.logger_tool.info("SCRAPE // Saved URLs and Archive - DONE!")
                 self.logger_print.info("* Saved URLs and Archive - DONE!")
         else:
@@ -463,3 +472,33 @@ class Scraper:
             self.logger_print.info("*** Nothing to scrape...")
 
         return total_docs
+
+
+    def create_empty_file(self, urls_dataframe: pandas.DataFrame, file_name: str) -> None:
+        """
+        Create empty CSV file (in dataset folder) for given DataFrame 
+        - use DataFrame to write columns names to file.
+
+        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
+        :param file_name (str): Name of CSV file.
+        """
+        if os.path.exists(os.path.join(self.config.dataset_folder, file_name)):
+            self.logger_tool.debug("Archive // File with visited URLs exist")
+        else:
+            self.logger_tool.debug("Archive // File with visited URLs don't exist - creating new file")
+            self.add_to_visited_file(urls_dataframe = urls_dataframe, file_name = file_name, head = True, mode = 'w')
+
+
+    def add_to_visited_file(self, urls_dataframe: pandas.DataFrame, file_name: str = "", head = False, mode = 'a') -> None:
+        """
+        Append visited URLs to CSV file (in dataset folder).
+
+        :param urls_dataframe (pandas.DataFrame): DataFrame containing processed URLs (and other columns).
+        :param file_name (str): Name of CSV file.
+        :param head (bool): True / False - if use header in df.to_csv function.
+        :param mode (char): Mode to use while opening file in df.to_csv function.
+        """
+        if not file_name:
+            file_name = self.config.topics_visited_file
+        urls_dataframe.to_csv(os.path.join(self.config.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
+        self.logger_tool.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")
