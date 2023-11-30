@@ -137,8 +137,11 @@ class ArchiveManager:
         total_docs = 0
         total_chars = 0
 
+        self.logger_tool.debug(f"Archive // Ready for merging loop...")
+
         # Re-packing chunks of archive to 1 output file
-        for file_path in tqdm(data_files, disable= not self.print_to_console):
+        for file_path in tqdm(data_files, disable = not self.print_to_console):
+            self.logger_tool.debug(f"Archive // Merging file: {file_path}")
             arch_part = Reader(file_path)
             for id, record in enumerate(arch_part.stream_data(get_meta = True)):
                 urel = record[1].get('url')
@@ -148,6 +151,7 @@ class ArchiveManager:
                     total_docs += 1
                     total_chars += record[1].get('characters')
                 else:
+                    self.logger_tool.debug(f"Archive // Merging - URL duplicate: {urel}")
                     urls_duplicated += 1
         ar_merge.commit()
         del (ar_merge)          # Delete Archive class to avoid errors with directories

@@ -217,6 +217,9 @@ class ForumEnginesManager:
         soup = BeautifulSoup(response.content, 'html.parser')
 
         forum_threads = self._get_forum_threads_extract(soup)
+        page_num = 1
+        self.logger_tool.info(f"* Forum searched for Threads/Forums ({page_num}): {url_now}")
+        self.logger_print.info(f"* Forum searched for Threads/Forums ({page_num}): {url_now}")
 
         #TODO: Pagination for THREADS
         # Find the link to the next page
@@ -225,13 +228,14 @@ class ForumEnginesManager:
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
+                page_num += 1
                 self.logger_tool.info(f"*** Found new page with threads... URL: {url_now}")
                 response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 forum_threads.update(self._get_thread_topics_extract(soup = soup))
-                self.logger_tool.info(f"--> Threads found in forum: {len(forum_threads)}")
-                self.logger_print.info(f"--> Threads found in forum: {len(forum_threads)}")
+                self.logger_tool.info(f"--> Threads found in forum ({page_num}): {len(forum_threads)}")
+                self.logger_print.info(f"--> Threads found in forum ({page_num}): {len(forum_threads)}")
             else:
                 break
 
@@ -272,13 +276,14 @@ class ForumEnginesManager:
         :return: A dictionary mapping topic URLs to their respective topic titles.
         """
         thread_topics = {}
+        page_num = 1
         
         response = session.get(url_now, timeout=60, headers=self.headers)
         soup = BeautifulSoup(response.content, 'html.parser')
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
-        self.logger_tool.info(f"--> Topics found in thread: {len(thread_topics)}")
-        self.logger_print.info(f"--> Topics found in thread: {len(thread_topics)}")
+        self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
+        self.logger_print.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
 
         # Find the link to the next page
         while self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool):
@@ -286,13 +291,14 @@ class ForumEnginesManager:
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
-                self.logger_tool.info(f"*** Found new page with topics... URL: {url_now}")
+                page_num += 1
+                self.logger_tool.info(f"* Found new page with topics ({page_num})... URL: {url_now}")
                 response = session.get(url_now, timeout=60, headers=self.headers)
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))
-                self.logger_tool.info(f"--> Topics found in thread: {len(thread_topics)}")
-                self.logger_print.info(f"--> Topics found in thread: {len(thread_topics)}")
+                self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
+                self.logger_print.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
             else:
                 break
         
@@ -329,7 +335,7 @@ class ForumEnginesManager:
             thread_topics.update(topics_found)
         
         time.sleep(self.time_sleep)
-        self.logger_tool.info(f"Found topics: {len(thread_topics)}")
+        self.logger_tool.debug(f"Found topics: {len(thread_topics)}")
         return thread_topics
 
     @staticmethod

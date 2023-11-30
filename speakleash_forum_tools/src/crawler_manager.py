@@ -45,8 +45,8 @@ from speakleash_forum_tools.src.config_manager import ConfigManager
 from speakleash_forum_tools.src.forum_engines import ForumEnginesManager
 from speakleash_forum_tools.src.archive_manager import ArchiveManager
 
-logging.getLogger("usp.helpers").setLevel(logging.ERROR)        # Set logging level for 'ultimate-sitemap-parser' to only ERROR
-logging.getLogger("usp.fetch_parse").setLevel(logging.ERROR)    # Set logging level for 'ultimate-sitemap-parser' to only ERROR
+# logging.getLogger("usp.helpers").setLevel(logging.ERROR)        # Set logging level for 'ultimate-sitemap-parser' to only ERROR
+# logging.getLogger("usp.fetch_parse").setLevel(logging.ERROR)    # Set logging level for 'ultimate-sitemap-parser' to only ERROR
 
 class CrawlerManager:
     """
@@ -90,6 +90,10 @@ class CrawlerManager:
         self.logger_tool = self.config_manager.logger_tool
         self.logger_print = self.config_manager.logger_print
 
+        if self.config_manager.logger_tool.level > 10:
+            logging.getLogger("usp.helpers").setLevel(logging.ERROR)        # Set logging level for 'ultimate-sitemap-parser' to only ERROR
+            logging.getLogger("usp.fetch_parse").setLevel(logging.ERROR)    # Set logging level for 'ultimate-sitemap-parser' to only ERROR
+
         self.files_folder = self.config_manager.files_folder
         self.dataset_folder = self.config_manager.dataset_folder
         self.dataset_name = self.config_manager.settings['DATASET_NAME']
@@ -120,7 +124,8 @@ class CrawlerManager:
         else:
 
             if self.config_manager.settings['SITEMAPS']:
-                self.sitemaps_url = self.config_manager.settings['SITEMAPS']
+                self.sitemaps_url = self.config_manager.settings['SITEMAPS'][0]
+                self.logger_tool.info(f"* Crawler will use Sitemaps URL -> {self.sitemaps_url}")
             else:
                 self.sitemaps_url = self.config_manager.main_site
 
@@ -202,32 +207,35 @@ class CrawlerManager:
         urls_expected: list[str] = []
 
         for page in forum_tree.all_pages():
-            if whitelist:
-                if any(url_part in page.url for url_part in whitelist):
-                    if blacklist:
-                        if any(url_part in page.url for url_part in blacklist):
+            if self.config_manager.settings["DATASET_URL"] in page.url:
+                if whitelist:
+                    if any(url_part in page.url for url_part in whitelist):
+                        if blacklist:
+                            if any(url_part in page.url for url_part in blacklist):
+                                self.logger_tool.debug(f"URL OUT <- {page.url}")
+                                continue
+                        if robotparser.can_fetch("*", page.url) or force_crawl == True:
+                            self.logger_tool.debug(f"URL GOOD -> {page.url}")
+                            urls_expected.append(page.url)
+                        else:
                             self.logger_tool.debug(f"URL OUT <- {page.url}")
-                            continue
-                    if robotparser.can_fetch("*", page.url) or force_crawl == True:
-                        self.logger_tool.debug(f"URL GOOD -> {page.url}")
-                        urls_expected.append(page.url)
+                        continue
                     else:
                         self.logger_tool.debug(f"URL OUT <- {page.url}")
-                    continue
-                else:
-                    self.logger_tool.debug(f"URL OUT <- {page.url}")
-                    continue
-            if blacklist:
-                if any(url_part in page.url for url_part in blacklist):
-                    self.logger_tool.debug(f"URL OUT <- {page.url}")
-                    continue
-                        
-            if not whitelist or not blacklist:
-                if robotparser.can_fetch("*", page.url) or force_crawl == True:
-                    self.logger_tool.debug(f"URL GOOD (+) -> {page.url}")
-                    urls_expected.append(page.url)
-                else:
-                    self.logger_tool.debug(f"URL OUT (+) <- {page.url}")
+                        continue
+                if blacklist:
+                    if any(url_part in page.url for url_part in blacklist):
+                        self.logger_tool.debug(f"URL OUT <- {page.url}")
+                        continue
+
+                if not whitelist or not blacklist:
+                    if robotparser.can_fetch("*", page.url) or force_crawl == True:
+                        self.logger_tool.debug(f"URL GOOD (+) -> {page.url}")
+                        urls_expected.append(page.url)
+                    else:
+                        self.logger_tool.debug(f"URL OUT (+) <- {page.url}")
+            else:
+                self.logger_tool.debug(f"CRAWLER // URL not from desire forum: {page.url}")
 
         urls_expected = list(set(urls_expected))
         self.logger_tool.debug(f"CRAWLER // URL Generator -> URLs_expected: {len(urls_expected)}")

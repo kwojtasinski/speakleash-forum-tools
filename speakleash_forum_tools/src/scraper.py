@@ -94,7 +94,7 @@ class Scraper:
     @staticmethod
     def _initialize_worker(visited_urls: list[str], headers_in: dict, content_class_in: list[str],
                            topic_title_class_in: list[str], text_separator_in: str,
-                           pagination_in: list[str], time_sleep_in: float, dataset_url_in: str, queue) -> None:
+                           pagination_in: list[str], time_sleep_in: float, dataset_url_in: str, queue, log_lvl) -> None:
         """
         Initialize the workers (parser and session) for multithreading performace.
 
@@ -104,7 +104,7 @@ class Scraper:
         loggur = logging.getLogger('sl_forum_tools')
         qh = QueueHandler(queue)
         loggur.addHandler(qh)
-        loggur.setLevel(logging.DEBUG)
+        loggur.setLevel(log_lvl)
 
         if psutil.LINUX == True:
             loggur.info(f"INIT_WORKER // Initializing worker... | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
@@ -314,9 +314,9 @@ class Scraper:
         # For DEBUG only
         try:
             if psutil.LINUX == True:
-                loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
+                loggur.info(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
             else:
-                loggur.debug(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid}")
+                loggur.info(f"PROCESS_ITEM // Metadata: {meta} | Proc ID: {psutil.Process().pid}")
         except Exception as e:
             loggur.warning("Problem with logging... Not printing METADATA for this topic...")
             loggur.debug(f"PROCESS_ITEM // Metadata: ... | Proc ID: {psutil.Process().pid}")
@@ -374,7 +374,8 @@ class Scraper:
                                   self.crawler.forum_engine.pagination,
                                   self.config.settings["TIME_SLEEP"],
                                   self.config.settings["DATASET_URL"],
-                                  self.config.q_que],
+                                  self.config.q_que,
+                                  self.logger_tool.level],
                       processes = PROCESSES) as pool:
 
                 time_loop_start = time.time()

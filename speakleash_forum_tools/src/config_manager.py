@@ -274,7 +274,6 @@ class ConfigManager:
         except Exception as e:
             self.logger_tool.error(f"Error while checking 'robots.txt' 1-st time...: {e}")
 
-        # print("------------------------------")
         time.sleep(0.5)
 
         try:
@@ -420,7 +419,7 @@ class ConfigManager:
         logger_tool.setLevel(log_lvl)
         
         # file_handler = logging.StreamHandler()
-        file_handler = logging.FileHandler(log_file_path)
+        file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
 
         formatter = logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
         file_handler.setFormatter(formatter)

@@ -57,6 +57,8 @@ class ManifestManager:
 
         :return: True if everything was OK and manifest is created, or False if something was wrong.
         """
+        self.logger_tool.info("MANIFEST // Preparing to create manifest...")
+
         manifest_filename: str = config_manager.settings["DATASET_NAME"] + '.manifest'
 
         # Placeholder values, will be updated in postprocessing
@@ -109,4 +111,5 @@ class ManifestManager:
             self.logger_tool.error(f"Manifest // Error while creating manifest!!! | Error: {str(e)}")
             return False
 
+        self.logger_tool.info(f"MANIFEST // Manifest created: {os.path.join(directory_to_save, manifest_filename)}")
         return True 
