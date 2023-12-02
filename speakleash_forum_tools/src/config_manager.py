@@ -115,6 +115,9 @@ class ConfigManager:
         self.logger_print = self.setup_logger_print(print_to_console)
         self.print_to_console = print_to_console
 
+        # Make sure forum URL is valid
+        self._validate_settings()
+
         self.logger_print.info("*******************************************")
         self.logger_print.info("*** SpeakLeash Forum Tools - crawler/scraper for forums ***")
 
@@ -409,9 +412,17 @@ class ConfigManager:
         except Exception as e:
             self.logger_tool.error(f"Config: Error while checking lists of threads/topics/whitelist/blacklist to search! Error: {e}")
 
+    def _validate_settings(self):
+        self.settings["DATASET_URL"] = self.settings["DATASET_URL"][:-1] if self.settings["DATASET_URL"][-1] == '/' else self.settings["DATASET_URL"]
+        
+        parsed_url = urlparse(self.settings["DATASET_URL"])
+        self.main_site = self.settings["DATASET_URL"]
+        if parsed_url.path:
+            self.main_site = self.settings["DATASET_URL"].replace(parsed_url.path, '')
+
+        self.logger_print.info(f"* Replaced last char in DATASET_URL, URL now -> {self.settings['DATASET_URL']}")
 
     def _print_settings(self) -> None:
-
         to_print = "--- Crawler settings ---"
         for key, value in self.settings.items():
             to_print = to_print + f"\n| {key}: {value}"

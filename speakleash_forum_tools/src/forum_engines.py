@@ -492,7 +492,7 @@ class PhpBBCrawler:
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
-        self.pagination: List[str] = ["arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
+        self.pagination: List[str] = ["next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
         self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]  # Used for topic title on topic 1-st page
         self.content_class: List[str] = ["div >> class :: content", "span >> class :: postbody"]  # Used for content_class / messages
 

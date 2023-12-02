@@ -391,10 +391,16 @@ class Scraper:
                 time_loop_start = time.time()
 
                 try:
+                    # from tqdm.contrib.discord import tqdm
+                    custom_link: str = self.config.settings['DATASET_URL']
+                    custom_link = custom_link.replace("http://","").replace("https://","")
                     # Issue tasks to the process pool for remaining URLs
                     for txt, meta in tqdm(pool.imap(func = self._process_item, 
                                                     iterable = topics_minus_visited['Topic_URLs'],
                                                     chunksize = 1),
+                                                    # token='{token}',
+                                                    # channel_id='{channel_id}',
+                                                    desc = f"| {custom_link} |",
                                                     total = urls_left_number, smoothing = 0.02,
                                                     disable = not self.config.print_to_console):
                         total += 1
