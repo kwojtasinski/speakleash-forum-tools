@@ -11,10 +11,7 @@ if __name__ == "__main__":
     #+ ForumToolsCore(dataset_url='https://max3d.pl/forums/', forum_engine='invision')          # Topics to find = 85.5k (from dashboard) == to big for testing manual crawler
 
     ### Engine: phpBB (old forum engine, small % sitemaps)
-    ForumToolsCore(dataset_url="https://forum.prawojazdy.com.pl/", forum_engine='phpbb', 
-                   pagination = ["next"],
-                   time_sleep = 0.5, processes = 4) 
-    # Topics to find = 21 669 (calc from website) == almost all
+    #+ ForumToolsCore(dataset_url="https://forum.prawojazdy.com.pl/", forum_engine='phpbb', pagination = ["next"], time_sleep = 0.5, processes = 4)  # Topics to find = 21 669 (calc from website) == almost all
     #+ ForumToolsCore(dataset_url="https://www.gry-planszowe.pl", forum_engine='phpbb', log_lvl='DEBUG')         # Topics to find = 24 596 (calc from website) == almost all
     #+ ForumToolsCore(dataset_url="http://www.excelforum.pl", forum_engine='phpbb', log_lvl='DEBUG')            # Topics to find = 58 414 (calc from website) == 48k found
 
@@ -25,3 +22,11 @@ if __name__ == "__main__":
     ### Engine: xenforo (sometimes sitemaps)
     # https://forum.modelarstwo.info --> Crawl-delay = 15sec (in robots.txt)
     #+ ForumToolsCore(dataset_url="https://forum.modelarstwo.info", forum_engine='xenforo', log_lvl='DEBUG')     # Topics to find = 16 500 (calc from website) == almost all
+
+
+
+
+    ForumToolsCore(dataset_url="https://bmw-sport.pl", 
+                   forum_engine='phpbb',
+                   log_lvl="DEBUG"
+                   ) 
