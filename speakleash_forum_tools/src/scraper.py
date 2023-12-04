@@ -102,9 +102,11 @@ class Scraper:
         return total_docs
 
     @staticmethod
-    def _initialize_worker(visited_urls: list[str], headers_in: dict, content_class_in: list[str],
+    def _initialize_worker(visited_urls: list[str], engine_type_in: str, 
+                           headers_in: dict, content_class_in: list[str],
                            topic_title_class_in: list[str], text_separator_in: str,
-                           pagination_in: list[str], time_sleep_in: float, dataset_url_in: str, queue, log_lvl) -> None:
+                           pagination_in: list[str], time_sleep_in: float, 
+                           dataset_url_in: str, queue, log_lvl) -> None:
         """
         Initialize the workers (parser and session) for multithreading performace.
 
@@ -126,6 +128,9 @@ class Scraper:
 
         global all_visited_urls
         all_visited_urls = visited_urls
+
+        global engine_type
+        engine_type = engine_type_in
 
         global headers
         headers = headers_in
@@ -163,6 +168,7 @@ class Scraper:
         :return: Tuple with 1) text - text data from given URL, 2) topic_title - topic title searched in specific HTML tags.
         """
         # Variables
+        global engine_type
         global headers
         global forum_content_class
         global forum_topic_title_class
@@ -241,8 +247,8 @@ class Scraper:
             try:            
                 # Iterate through all of the pages in given topic/thread
                 # while len(soup.find_all('li', {'class': 'ipsPagination_next'})) > 0:
-                while ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination, logger_tool=loggur):
-                    next_page_link = ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination, logger_tool=loggur, push_log=False)
+                while ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination, engine_type=engine_type, logger_tool=loggur):
+                    next_page_link = ForumEnginesManager._get_next_page_link(url_now = url, soup = soup, pagination = pagination, engine_type=engine_type, logger_tool=loggur, push_log=False)
                     url = urljoin(DATASET_URL, next_page_link) if next_page_link else False
 
                     if url and DATASET_URL in url:
@@ -377,6 +383,7 @@ class Scraper:
             self.logger_tool.info("* Starting Multiprocessing Pool...")
             with ctx.Pool(initializer = self._initialize_worker,
                       initargs = [visited_topics['Topic_URLs'],
+                                  self.config.settings["FORUM_ENGINE"],
                                   self.config.headers,
                                   self.crawler.forum_engine.content_class,
                                   self.crawler.forum_engine.topic_title_class,

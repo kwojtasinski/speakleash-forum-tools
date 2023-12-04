@@ -9,3 +9,4 @@ temp_scraper_data/
 *.manifest
 *.log
 robots.txt
+current_chunk_incomplete

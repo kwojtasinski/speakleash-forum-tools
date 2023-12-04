@@ -228,8 +228,8 @@ class ForumEnginesManager:
 
         #TODO: Pagination for THREADS
         # Find the link to the next page
-        while self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool):
-            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool, push_log=False)
+        while self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool, push_log=False)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
@@ -291,8 +291,8 @@ class ForumEnginesManager:
         self.logger_print.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
 
         # Find the link to the next page
-        while self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool):
-            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, logger_tool=self.logger_tool, push_log=False)
+        while self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool):
+            next_page_link = self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool, push_log=False)
             url_now = urljoin(self.forum_url, next_page_link) if next_page_link else False
             
             if url_now and self.forum_url in url_now:
@@ -344,7 +344,7 @@ class ForumEnginesManager:
         return thread_topics
 
     @staticmethod
-    def _get_next_page_link(url_now: str, soup: BeautifulSoup, pagination: list[str], logger_tool: logging.Logger, push_log: bool = True) -> Union[str, bool]:
+    def _get_next_page_link(url_now: str, soup: BeautifulSoup, pagination: list[str], engine_type: str, logger_tool: logging.Logger, push_log: bool = True) -> Union[str, bool]:
         """
         Finds the link to the next page using pagination.
         Default HTML tags to search = ['li', 'a', 'div']
@@ -398,60 +398,63 @@ class ForumEnginesManager:
                     return next_page
         
         # Search for URLs - no buttons or HTML tags for them
-        try:
-            # Preapre URL without 'sid=' and 'start='
-            forum_num = 0
-            topic_num = 0
-            startnum_num = 0
+        if engine_type == 'phpbb':
+            try:
+                # Preapre URL without 'sid=' and 'start='
+                forum_num = 0
+                topic_num = 0
+                startnum_num = 0
 
-            # Save url_now => forum number / topic number / start shift
-            url_wo_ = url_now.split("?")[1].split('&')
-            for x in url_wo_:
-                if x.startswith("f="):
-                    forum_num = int(x.replace("f=",""))
-                elif x.startswith("t="):
-                    topic_num = int(x.replace("t=",""))
-                elif x.startswith("start="):
-                    startnum_num = int(x.replace("start=",""))
+                # Save url_now => forum number / topic number / start shift
+                url_wo_ = url_now.replace("&amp;","&").split("?")[1].split('&')
+                for x in url_wo_:
+                    if x.startswith("f="):
+                        forum_num = int(x.replace("f=",""))
+                    elif x.startswith("t="):
+                        topic_num = int(x.replace("t=",""))
+                    elif x.startswith("start="):
+                        startnum_num = int(x.replace("start=",""))
 
-            # Find valid topics
-            page_no = dict()
-            pages = soup.find_all('a')
+                # Find valid topics
+                page_no = dict()
+                pages = soup.find_all('a')
+
+                for page in pages:
+                    link_page: str = page.get('href', '')
+                    if link_page:
+                        if '?' in link_page and 'start=' in link_page:
+                            temp_startnum_num = 0 
+                            temp_forum_num = 0
+                            temp_topic_num = 0
+
+                            link_page = link_page.replace("&amp;","&")
+                            link_page_query = link_page.split("?")
+
+                            if len(link_page_query) > 1:
+                                if link_page_query[1]:
+                                    temp_page = link_page_query[1].split('&')
+                                    try:
+                                        for x in temp_page:
+                                            if x.startswith("f="):
+                                                temp_forum_num = int(x.replace("f=",""))
+                                            elif x.startswith("t="):
+                                                temp_topic_num = int(x.replace("t=",""))
+                                            elif x.startswith("start="):
+                                                temp_startnum_num = int(x.replace("start=",""))
+                                        if temp_startnum_num != 0 and temp_forum_num == forum_num and temp_topic_num == topic_num:
+                                            page_no.update({link_page : temp_startnum_num})
+                                    except Exception as e:
+                                        logger_tool.error(f"Error while searching for valid next page: {e}")
         
-            for page in pages:
-                link_page: str = page.get('href', '')
-                if link_page:
-                    temp_startnum_num = 0 
-                    temp_forum_num = 0
-                    temp_topic_num = 0
-                    if '?' in link_page and 'start=' in link_page:
-                        link_page = link_page.replace("amp;","")
-                        link_page_query = link_page.split("?")
-                        if len(link_page_query) > 1:
-                            if link_page_query[1]:
-                                temp_page = link_page_query[1].split('&')
-                                try:
-                                    for x in temp_page:
-                                        if x.startswith("f="):
-                                            temp_forum_num = int(x.replace("f=",""))
-                                        elif x.startswith("t="):
-                                            temp_topic_num = int(x.replace("t=",""))
-                                        elif x.startswith("start="):
-                                            temp_startnum_num = int(x.replace("start=",""))
-                                    if temp_startnum_num != 0 and temp_forum_num == forum_num and temp_topic_num == topic_num:
-                                        page_no.update({link_page : temp_startnum_num})
-                                except Exception as e:
-                                    logger_tool.error(f"Error while searching for valid next page: {e}")
-        
-            # Search for next page url
-            for url_next, key_num in dict(sorted(page_no.items(), key=lambda item: item[1])).items():
-                if key_num > startnum_num:
-                    if push_log:
-                        # print(f"| NEXT PAGE // Found next page with topics -> {url_next}")
-                        logger_tool.debug(f"NEXT PAGE // Found next page with topics -> {url_next}")
-                    return url_next
-        except Exception as e:
-            logger_tool.error(f"Problem when searching manually for next page: {e}")
+                # Search for next page url
+                for url_next, key_num in dict(sorted(page_no.items(), key=lambda item: item[1])).items():
+                    if key_num > startnum_num:
+                        if push_log:
+                            # print(f"| NEXT PAGE // Found next page with topics -> {url_next}")
+                            logger_tool.debug(f"NEXT PAGE // Found next page with topics -> {url_next}")
+                        return url_next
+            except Exception as e:
+                logger_tool.error(f"Problem when searching manually for next page: {e}")
 
         logger_tool.debug("NEXT PAGE // Can't find more pages in this topic ---")
         return False
@@ -553,7 +556,7 @@ class PhpBBCrawler:
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
         self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]  # Used for topic title on topic 1-st page
-        self.content_class: List[str] = ["div >> class :: content", "span >> class :: postbody"]  # Used for content_class / messages
+        self.content_class: List[str] = ["div >> class :: content", "div >> class :: postbody"]  # Used for content_class / messages
 
 class IPBoardCrawler:
     """
