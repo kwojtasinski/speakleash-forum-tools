@@ -10,3 +10,4 @@ temp_scraper_data/
 *.log
 robots.txt
 current_chunk_incomplete
+*.jsonl

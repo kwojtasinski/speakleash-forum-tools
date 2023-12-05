@@ -27,12 +27,12 @@ if __name__ == "__main__":
     #TODO: -> DATASET_URL in TOPIC_URL
     #TODO: -> 
 
-    ForumToolsCore(dataset_url = "https://forum.mitsumaniaki.pl", 
-                   forum_engine = 'phpbb',
-                   content_class = ["span >> class :: postbody"],
-                   topic_title_class = ["a >> class :: nav"],
-                    log_lvl="DEBUG" ) 
-
-    # ForumToolsCore(dataset_url = "https://forummedyczne.edu.pl", 
-    #                 forum_engine = 'phpbb',
+    # ForumToolsCore(dataset_url = "https://forum.mitsumaniaki.pl", 
+    #                forum_engine = 'phpbb',
+    #                content_class = ["span >> class :: postbody"],
+    #                topic_title_class = ["a >> class :: nav"],
     #                 log_lvl="DEBUG" ) 
+
+    ForumToolsCore(dataset_url = "https://www.mazdaspeed.pl/forum/", 
+                    forum_engine = 'phpbb',
+                    log_lvl="DEBUG" ) 

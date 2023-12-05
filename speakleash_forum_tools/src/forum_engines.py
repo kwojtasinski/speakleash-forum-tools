@@ -522,7 +522,10 @@ class ForumEnginesManager:
                                     continue
                             if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
                                 logger_tool.debug(f"{to_find} GOOD -> {a_tag['href']}")
-                                to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
+                                url_return = urljoin(forum_url, a_tag['href'])
+                                if forum_url not in url_return:
+                                    url_return = forum_url + a_tag['href'][1:]
+                                to_return_dict.update({url_return : a_tag.get_text(strip=True)})
                             else:
                                 logger_tool.debug(f"{to_find} OUT <- {a_tag['href']}")
                             continue
@@ -537,7 +540,10 @@ class ForumEnginesManager:
                     if not whitelist or not blacklist:
                         if robotparser.can_fetch("*", a_tag['href']) or force_crawl == True:
                             logger_tool.debug(f"{to_find} GOOD (+) -> {a_tag['href']}")
-                            to_return_dict.update({urljoin(forum_url, a_tag['href']) : a_tag.get_text(strip=True)})
+                            url_return = urljoin(forum_url, a_tag['href'])
+                            if forum_url not in url_return:
+                                url_return = forum_url + a_tag['href'][1:]
+                            to_return_dict.update({url_return : a_tag.get_text(strip=True)})
                         else:
                             logger_tool.debug(f"{to_find} OUT (+) <- {a_tag['href']}")
             except Exception as e:
@@ -583,7 +589,7 @@ class PhpBBCrawler:
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
         self.pagination: List[str] = ["next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
-        self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title"]  # Used for topic title on topic 1-st page
+        self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title", "h2 >> class :: viewtopic"]  # Used for topic title on topic 1-st page
         self.content_class: List[str] = ["div >> class :: content", "div >> class :: postbody"]  # Used for content_class / messages
 
 class IPBoardCrawler:
