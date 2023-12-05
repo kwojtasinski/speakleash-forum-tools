@@ -218,7 +218,15 @@ class ForumEnginesManager:
 
         :return: A dictionary mapping thread URLs to their respective thread titles.
         """
-        response = session.get(url_now, timeout=60, headers=self.headers)
+        forum_threads = {}
+        try:
+            if self.forum_url in url_now:
+                response = session.get(url_now, timeout=60, headers=self.headers)
+            else:
+                return forum_threads
+        except Exception as e:
+            # self.logger_tool(f"Error while getting WEBSITE: {e}")
+            return forum_threads
         soup = BeautifulSoup(response.content, 'html.parser')
 
         forum_threads = self._get_forum_threads_extract(soup)
@@ -226,7 +234,6 @@ class ForumEnginesManager:
         self.logger_tool.info(f"* Forum searched for Threads/Forums ({page_num}): {url_now}")
         self.logger_print.info(f"* Forum searched for Threads/Forums ({page_num}): {url_now}")
 
-        #TODO: Pagination for THREADS
         # Find the link to the next page
         while self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool):
             next_page_link = self._get_next_page_link(url_now, soup, self.pagination, engine_type=self.engine_type, logger_tool=self.logger_tool, push_log=False)
@@ -235,7 +242,14 @@ class ForumEnginesManager:
             if url_now and self.forum_url in url_now:
                 page_num += 1
                 self.logger_tool.info(f"*** Found new page with threads... URL: {url_now}")
-                response = session.get(url_now, timeout=60, headers=self.headers)
+                try:
+                    if self.forum_url in url_now:
+                        response = session.get(url_now, timeout=60, headers=self.headers)
+                    else:
+                        return forum_threads
+                except Exception as e:
+                    # self.logger_tool(f"Error while getting WEBSITE: {e}")
+                    return forum_threads
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 forum_threads.update(self._get_thread_topics_extract(soup = soup))
@@ -283,7 +297,14 @@ class ForumEnginesManager:
         thread_topics = {}
         page_num = 1
         
-        response = session.get(url_now, timeout=60, headers=self.headers)
+        try:
+            if self.forum_url in url_now:
+                response = session.get(url_now, timeout=60, headers=self.headers)
+            else:
+                return thread_topics
+        except Exception as e:
+            # self.logger_tool(f"Error while getting WEBSITE: {e}")
+            return thread_topics
         soup = BeautifulSoup(response.content, 'html.parser')
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
@@ -298,7 +319,14 @@ class ForumEnginesManager:
             if url_now and self.forum_url in url_now:
                 page_num += 1
                 self.logger_tool.info(f"* Found new page with topics ({page_num})... URL: {url_now}")
-                response = session.get(url_now, timeout=60, headers=self.headers)
+                try:
+                    if self.forum_url in url_now:
+                        response = session.get(url_now, timeout=60, headers=self.headers)
+                    else:
+                        return thread_topics
+                except Exception as e:
+                    # self.logger_tool(f"Error while getting WEBSITE: {e}")
+                    return thread_topics
                 soup = BeautifulSoup(response.content, 'html.parser')
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))

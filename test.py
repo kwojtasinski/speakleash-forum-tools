@@ -24,9 +24,15 @@ if __name__ == "__main__":
     #+ ForumToolsCore(dataset_url="https://forum.modelarstwo.info", forum_engine='xenforo', log_lvl='DEBUG')     # Topics to find = 16 500 (calc from website) == almost all
 
 
+    #TODO: -> DATASET_URL in TOPIC_URL
+    #TODO: -> 
 
+    ForumToolsCore(dataset_url = "https://forum.mitsumaniaki.pl", 
+                   forum_engine = 'phpbb',
+                   content_class = ["span >> class :: postbody"],
+                   topic_title_class = ["a >> class :: nav"],
+                    log_lvl="DEBUG" ) 
 
-    ForumToolsCore(dataset_url="https://bmw-sport.pl", 
-                   forum_engine='phpbb',
-                   log_lvl="DEBUG"
-                   ) 
+    # ForumToolsCore(dataset_url = "https://forummedyczne.edu.pl", 
+    #                 forum_engine = 'phpbb',
+    #                 log_lvl="DEBUG" ) 
