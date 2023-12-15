@@ -25,14 +25,23 @@ if __name__ == "__main__":
 
 
     #TODO: -> DATASET_URL in TOPIC_URL
-    #TODO: -> 
+    #TODO: -> URLs wyciagniete z Sitemap wywalić im &start=...
+    #TODO:      - https://forum.peugeot205.pl
+    #TODO:      - https://forum.parkiet.com
+    #TODO:      - https://forum.vwgolf.pl
 
     # ForumToolsCore(dataset_url = "https://forum.mitsumaniaki.pl", 
-    #                forum_engine = 'phpbb',
-    #                content_class = ["span >> class :: postbody"],
-    #                topic_title_class = ["a >> class :: nav"],
+    #                 forum_engine = 'phpbb',
+    #                 content_class = ["span >> class :: postbody"],
+    #                 processes = 4,
     #                 log_lvl="DEBUG" ) 
 
-    ForumToolsCore(dataset_url = "https://www.mazdaspeed.pl/forum/", 
+    # ForumToolsCore(dataset_url = "http://forum.wirtualnemedia.pl", 
+    #                 forum_engine = 'phpbb',
+    #                 processes=6,
+    #                 log_lvl="DEBUG" ) 
+    
+    ForumToolsCore(dataset_url = "https://bmw-sport.pl", 
                     forum_engine = 'phpbb',
+                    processes = 4,
                     log_lvl="DEBUG" ) 

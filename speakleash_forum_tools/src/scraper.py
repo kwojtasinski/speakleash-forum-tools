@@ -198,6 +198,43 @@ class Scraper:
             if len(response.content)>15000000:
                 loggur.warning("GET_TEXT // File too big")
                 return text
+            
+            # Find encoding for website
+            website_encoding = 'utf-8'
+            try:
+                soup = BeautifulSoup(response.content, "html.parser")
+                for meta_tag in soup.find_all('meta'):
+                    if 'charset' in meta_tag.attrs:
+                        website_encoding = meta_tag['charset']
+                    elif 'content' in meta_tag.attrs:
+                        content = meta_tag['content']
+                        charset_pos = content.find('charset=')
+                        if charset_pos != -1:
+                            website_encoding = content[charset_pos + len('charset='):].split(';')[0]
+                            loggur.debug(f"GET_TEXT // >> Found encoding -> {website_encoding}")
+            except:
+                loggur.warning("GET_TEXT // Can't find proper encoding... set 'UTF-8' as default")
+
+
+            # Get Topic-Title as "forum_topic" (only from 1-st page)
+            try:
+                soup = BeautifulSoup(response.content, "html.parser")
+                for content_class in forum_topic_title_class:
+                    html_tag, attr_name_value = content_class.split(" >> ")
+                    attr_name, attr_value = attr_name_value.split(" :: ")
+                    topic_title = soup.find(html_tag, {attr_name: attr_value})
+                    if topic_title:
+                        break
+                
+                if topic_title:
+                    topic_title = topic_title.text.strip().encode(website_encoding, errors='ignore').decode(encoding='utf-8', errors='ignore')
+
+                if not topic_title:
+                    loggur.warning("GET_TEXT // Topic_Title EMPTY !!!!!!!!!")
+                    topic_title = ""
+
+            except Exception as e:
+                loggur.error(f"GET_TEXT // ERROR BeautifulSoup (topic-title): {str(e)}")
 
             # Beautiful Soup to extract data from HTML
             try:
@@ -218,27 +255,6 @@ class Scraper:
             # Get text data from posts on page and add it to the string
             for comment in comment_blocks:
                 text += comment.text.strip() + text_separator
-
-            # Get Topic-Title as "forum_topic" (only from 1-st page)
-            try:
-                soup = BeautifulSoup(response.content, "html.parser")
-                for content_class in forum_topic_title_class:
-                    html_tag, attr_name_value = content_class.split(" >> ")
-                    attr_name, attr_value = attr_name_value.split(" :: ")
-                    topic_title = soup.find(html_tag, {attr_name: attr_value})
-                    if topic_title:
-                        break
-                
-                if topic_title:
-                    topic_title = topic_title.text.strip()
-
-                if not topic_title:
-                    loggur.warning("GET_TEXT // Topic_Title EMPTY !!!!!!!!!")
-                    topic_title = ""
-
-            except Exception as e:
-                loggur.error(f"GET_TEXT // ERROR BeautifulSoup (topic-title): {str(e)}")
-
 
             # Sleep for - we dont wanna burn servers
             time.sleep(time_sleep)
@@ -287,6 +303,11 @@ class Scraper:
         # Connection not successful - error
         elif not response.ok:
             loggur.warning(f"GET_TEXT // Error response -> {url} | Response: {response.status_code}")
+
+        try:
+            text = text.encode(encoding = website_encoding, errors = 'ignore').decode(encoding='utf-8', errors = 'ignore')
+        except Exception as e:
+            loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT -> {e}")
 
         return text, topic_title
 

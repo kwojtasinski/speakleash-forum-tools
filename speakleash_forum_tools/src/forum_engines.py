@@ -389,7 +389,20 @@ class ForumEnginesManager:
             
             try:
                 if (pagination_class.find(" >> ") < 0) and (pagination_class.find(" :: ") < 0):
-                    next_button = soup.find(html_tag, {'class': {pagination_class}})
+                    next_button = soup.find_all(html_tag, {'class': {pagination_class}})
+                    if next_button:
+                        if engine_type == 'phpbb' and "pagination-arrow" in pagination:
+                            flag_found = False
+                            for x in next_button:
+                                if x.find('i', {'class':'fa fa-arrow-right'}):
+                                    next_button = x
+                                    flag_found = True
+                                    logger_tool.debug("Found PHPBB weird pagination")
+                                    break
+                            if not flag_found:
+                                next_button = ''
+                        else:
+                            next_button = next_button[0]
 
                 if not next_button and (pagination_class.find(" >> ") < 0) and (pagination_class.find(" :: ") > 0):
                     pag_type, pag_class = pagination_class.split(" :: ")
@@ -588,7 +601,7 @@ class PhpBBCrawler:
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
-        self.pagination: List[str] = ["next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
+        self.pagination: List[str] = ["pagination-arrow", "next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
         self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title", "h2 >> class :: viewtopic", "a >> class :: nav"]  # Used for topic title on topic 1-st page
         self.content_class: List[str] = ["div >> class :: content", "div >> class :: postbody"]  # Used for content_class / messages
 
