@@ -37,6 +37,7 @@ Dependencies:
 - requests, urllib, BeautifulSoup -  For web requests and HTML parsing.
 """
 import os
+import re
 import time
 import logging
 from typing import List
@@ -146,6 +147,11 @@ class CrawlerManager:
                                                              robotparser = self.config_manager.robot_parser, force_crawl = self.config_manager.force_crawl)
                 self.forum_topics['Topic_Titles'] = ""
                 self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
+
+                if self.config_manager.settings['FORUM_ENGINE'] == 'phpbb':
+                    self.forum_topics['Topic_URLs'] = self.phpbb_cut_query(self.forum_topics['Topic_URLs'])
+                    self.forum_topics = self.forum_topics.drop_duplicates(subset='Topic_URLs', ignore_index=True)
+                    
                 self.logger_tool.info("---------------------------------------------------------------------------------------------------")
                 self.logger_print.info("---------------------------------------------------------------------------------------------------")
             except Exception as e:
@@ -261,7 +267,11 @@ class CrawlerManager:
         urls_expected = list(set(urls_expected))
         self.logger_tool.debug(f"CRAWLER // URL Generator -> URLs_expected: {len(urls_expected)}")
         return urls_expected
-    
+
+    def phpbb_cut_query(self, urls_list):
+        cleaned_urls_list = [re.sub(r"&start=\d+", '', url) for idx, url in enumerate(urls_list)]
+        return cleaned_urls_list
+
 
     def _check_dataset_files(self, dataset_name: str, topics_urls_filename: str = "Topics_URLs.csv", topics_visited_filename: str = "Visited_Topics_URLs.csv") -> tuple[pandas.DataFrame, pandas.DataFrame]:
         """

@@ -41,7 +41,17 @@ if __name__ == "__main__":
     #                 processes=6,
     #                 log_lvl="DEBUG" ) 
     
-    ForumToolsCore(dataset_url = "https://bmw-sport.pl", 
+    # ForumToolsCore(dataset_url = "https://forum.peugeot205.pl", 
+    #                 forum_engine = 'phpbb',
+    #                 processes = 4,
+    #                 log_lvl="DEBUG" ) 
+    
+    # ForumToolsCore(dataset_url = "https://forum.parkiet.com", 
+    #                 forum_engine = 'phpbb',
+    #                 processes = 4,
+    #                 log_lvl="DEBUG" ) 
+
+    ForumToolsCore(dataset_url = "https://forum.vwgolf.pl", 
                     forum_engine = 'phpbb',
                     processes = 4,
                     log_lvl="DEBUG" ) 

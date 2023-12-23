@@ -199,26 +199,26 @@ class Scraper:
                 loggur.warning("GET_TEXT // File too big")
                 return text
             
-            # Find encoding for website
-            website_encoding = 'utf-8'
-            try:
-                soup = BeautifulSoup(response.content, "html.parser")
-                for meta_tag in soup.find_all('meta'):
-                    if 'charset' in meta_tag.attrs:
-                        website_encoding = meta_tag['charset']
-                    elif 'content' in meta_tag.attrs:
-                        content = meta_tag['content']
-                        charset_pos = content.find('charset=')
-                        if charset_pos != -1:
-                            website_encoding = content[charset_pos + len('charset='):].split(';')[0]
-                            loggur.debug(f"GET_TEXT // >> Found encoding -> {website_encoding}")
-            except:
-                loggur.warning("GET_TEXT // Can't find proper encoding... set 'UTF-8' as default")
+            ###  Find encoding for website
+            # website_encoding = 'utf-8'
+            # try:
+            #     soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
+            #     for meta_tag in soup.find_all('meta'):
+            #         if 'charset' in meta_tag.attrs:
+            #             website_encoding = meta_tag['charset']
+            #         elif 'content' in meta_tag.attrs:
+            #             content = meta_tag['content']
+            #             charset_pos = content.find('charset=')
+            #             if charset_pos != -1:
+            #                 website_encoding = content[charset_pos + len('charset='):].split(';')[0]
+            #                 loggur.debug(f"GET_TEXT // >> Found encoding -> {website_encoding}")
+            # except:
+            #     loggur.warning("GET_TEXT // Can't find proper encoding... set 'UTF-8' as default")
 
 
             # Get Topic-Title as "forum_topic" (only from 1-st page)
             try:
-                soup = BeautifulSoup(response.content, "html.parser")
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
                 for content_class in forum_topic_title_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -227,7 +227,7 @@ class Scraper:
                         break
                 
                 if topic_title:
-                    topic_title = topic_title.text.strip().encode(website_encoding, errors='ignore').decode(encoding='utf-8', errors='ignore')
+                    topic_title = topic_title.text.strip()
 
                 if not topic_title:
                     loggur.warning("GET_TEXT // Topic_Title EMPTY !!!!!!!!!")
@@ -238,7 +238,7 @@ class Scraper:
 
             # Beautiful Soup to extract data from HTML
             try:
-                soup = BeautifulSoup(response.content, "html.parser")
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
                 for content_class in forum_content_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -272,7 +272,7 @@ class Scraper:
                         loggur.debug(f"GET_TEXT // Found new page for topic: {page_num} -> {url} | Topic: {topic_url}")
 
                         next_page_response = session.get(url, timeout=60, headers = headers)
-                        soup = BeautifulSoup(next_page_response.content, "html.parser")
+                        soup = BeautifulSoup(next_page_response.content, "html.parser", from_encoding='utf-8')
 
                         for content_class in forum_content_class:
                             html_tag, attr_name_value = content_class.split(" >> ")
@@ -305,9 +305,10 @@ class Scraper:
             loggur.warning(f"GET_TEXT // Error response -> {url} | Response: {response.status_code}")
 
         try:
-            text = text.encode(encoding = website_encoding, errors = 'ignore').decode(encoding='utf-8', errors = 'ignore')
+            text = text.encode(encoding='utf-8').decode(encoding='utf-8')
         except Exception as e:
             loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT -> {e}")
+            print(f"* Encoding Failure * : {url}")
 
         return text, topic_title
 
@@ -438,8 +439,12 @@ class Scraper:
 
                         if txt and len(txt) > self.config.settings["MIN_LEN_TXT"]:
                             total_docs += 1
-                            if not meta["topic_title"]:
-                                meta.update({"topic_title": "x"})
+
+                            # Find if we already have 'topic_title' (from crawling)
+                            topic_title = topics_minus_visited[topics_minus_visited['Topic_URLs'] == meta.get('url')].iloc[0,1]
+                            if topic_title:
+                                meta.update({"topic_title": topic_title})
+                            
                             ar.add_data(txt, meta = meta)
                             added += 1
                             flag_visited = 1

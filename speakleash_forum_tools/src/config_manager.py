@@ -42,6 +42,7 @@ from typing import Optional, Tuple, List
 
 from speakleash_forum_tools.src.utils import check_for_library_updates, create_session
 
+#TODO: Yea... we can use Pydantic...
 
 class ConfigManager:
     """

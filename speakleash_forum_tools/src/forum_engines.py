@@ -227,7 +227,7 @@ class ForumEnginesManager:
         except Exception as e:
             # self.logger_tool(f"Error while getting WEBSITE: {e}")
             return forum_threads
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
 
         forum_threads = self._get_forum_threads_extract(soup)
         page_num = 1
@@ -250,7 +250,7 @@ class ForumEnginesManager:
                 except Exception as e:
                     # self.logger_tool(f"Error while getting WEBSITE: {e}")
                     return forum_threads
-                soup = BeautifulSoup(response.content, 'html.parser')
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
 
                 forum_threads.update(self._get_thread_topics_extract(soup = soup))
                 self.logger_tool.info(f"--> Threads found in forum ({page_num}): {len(forum_threads)}")
@@ -305,7 +305,7 @@ class ForumEnginesManager:
         except Exception as e:
             # self.logger_tool(f"Error while getting WEBSITE: {e}")
             return thread_topics
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
         self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
@@ -327,7 +327,7 @@ class ForumEnginesManager:
                 except Exception as e:
                     # self.logger_tool(f"Error while getting WEBSITE: {e}")
                     return thread_topics
-                soup = BeautifulSoup(response.content, 'html.parser')
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))
                 self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
