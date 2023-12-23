@@ -51,7 +51,13 @@ if __name__ == "__main__":
     #                 processes = 4,
     #                 log_lvl="DEBUG" ) 
 
-    ForumToolsCore(dataset_url = "https://forum.vwgolf.pl", 
+    # ForumToolsCore(dataset_url = "https://forum.vwgolf.pl", 
+    #                 forum_engine = 'phpbb',
+    #                 processes = 4,
+    #                 log_lvl="DEBUG" ) 
+
+    ForumToolsCore(dataset_url = "https://forum.gs500.pl", 
                     forum_engine = 'phpbb',
+                    content_class = ["span >> class :: postbody"],
                     processes = 4,
                     log_lvl="DEBUG" ) 

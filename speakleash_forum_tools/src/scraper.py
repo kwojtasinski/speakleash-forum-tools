@@ -199,26 +199,9 @@ class Scraper:
                 loggur.warning("GET_TEXT // File too big")
                 return text
             
-            ###  Find encoding for website
-            # website_encoding = 'utf-8'
-            # try:
-            #     soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
-            #     for meta_tag in soup.find_all('meta'):
-            #         if 'charset' in meta_tag.attrs:
-            #             website_encoding = meta_tag['charset']
-            #         elif 'content' in meta_tag.attrs:
-            #             content = meta_tag['content']
-            #             charset_pos = content.find('charset=')
-            #             if charset_pos != -1:
-            #                 website_encoding = content[charset_pos + len('charset='):].split(';')[0]
-            #                 loggur.debug(f"GET_TEXT // >> Found encoding -> {website_encoding}")
-            # except:
-            #     loggur.warning("GET_TEXT // Can't find proper encoding... set 'UTF-8' as default")
-
-
             # Get Topic-Title as "forum_topic" (only from 1-st page)
             try:
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
                 for content_class in forum_topic_title_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -238,7 +221,7 @@ class Scraper:
 
             # Beautiful Soup to extract data from HTML
             try:
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8')
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
                 for content_class in forum_content_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -271,8 +254,8 @@ class Scraper:
                         page_num += 1
                         loggur.debug(f"GET_TEXT // Found new page for topic: {page_num} -> {url} | Topic: {topic_url}")
 
-                        next_page_response = session.get(url, timeout=60, headers = headers)
-                        soup = BeautifulSoup(next_page_response.content, "html.parser", from_encoding='utf-8')
+                        response = session.get(url, timeout=60, headers = headers)
+                        soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
 
                         for content_class in forum_content_class:
                             html_tag, attr_name_value = content_class.split(" >> ")
@@ -307,7 +290,8 @@ class Scraper:
         try:
             text = text.encode(encoding='utf-8').decode(encoding='utf-8')
         except Exception as e:
-            loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT -> {e}")
+            text = text.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8')
+            loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT | URL: {url} | -> {e}")
             print(f"* Encoding Failure * : {url}")
 
         return text, topic_title
