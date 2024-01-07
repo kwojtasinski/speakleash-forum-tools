@@ -95,6 +95,7 @@ class ForumEnginesManager:
         self.forum_url = config_manager.settings['DATASET_URL']
         self.dataset_name = config_manager.settings['DATASET_NAME']
         self.time_sleep = config_manager.settings['TIME_SLEEP']
+        self.web_encoding = config_manager.settings['ENCODING']
         self.logger_tool.info(f"Forum Engines Manager -> Forum URL = {self.forum_url} | Engine Type = {self.engine_type} | Sleep Time = {self.time_sleep}")
 
         self.robot_parser = config_manager.robot_parser
@@ -227,7 +228,8 @@ class ForumEnginesManager:
         except Exception as e:
             # self.logger_tool(f"Error while getting WEBSITE: {e}")
             return forum_threads
-        soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+        web_encoding = self.web_encoding if self.web_encoding else response.encoding
+        soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
 
         forum_threads = self._get_forum_threads_extract(soup)
         page_num = 1
@@ -250,7 +252,8 @@ class ForumEnginesManager:
                 except Exception as e:
                     # self.logger_tool(f"Error while getting WEBSITE: {e}")
                     return forum_threads
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+                web_encoding = self.web_encoding if self.web_encoding else response.encoding
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
 
                 forum_threads.update(self._get_thread_topics_extract(soup = soup))
                 self.logger_tool.info(f"--> Threads found in forum ({page_num}): {len(forum_threads)}")
@@ -305,7 +308,8 @@ class ForumEnginesManager:
         except Exception as e:
             # self.logger_tool(f"Error while getting WEBSITE: {e}")
             return thread_topics
-        soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+        web_encoding = self.web_encoding if self.web_encoding else response.encoding
+        soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
         
         thread_topics = self._get_thread_topics_extract(soup = soup)
         self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
@@ -327,7 +331,8 @@ class ForumEnginesManager:
                 except Exception as e:
                     # self.logger_tool(f"Error while getting WEBSITE: {e}")
                     return thread_topics
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+                web_encoding = self.web_encoding if self.web_encoding else response.encoding
+                soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
 
                 thread_topics.update(self._get_thread_topics_extract(soup = soup))
                 self.logger_tool.info(f"--> Topics found in thread ({page_num}): {len(thread_topics)}")
@@ -601,7 +606,7 @@ class PhpBBCrawler:
         self.threads_blacklist: List[str] = []
         self.topics_whitelist: List[str] = []
         self.topics_blacklist: List[str] = []
-        self.pagination: List[str] = ["pagination-arrow", "next", "arrow next", "right-box right", "title :: Dalej", "pag-img"]  # Different phpBB forums
+        self.pagination: List[str] = ["pagination-arrow", "next", "arrow next", "right-box right", "title :: Dalej", "pag-img", "right-box-topic right btn btn-primary", "span >> class :: pagination"]  # Different phpBB forums
         self.topic_title_class: List[str] = ["h2 >>  :: ", "h2 >> class :: topic-title", "h2 >> class :: viewtopic", "a >> class :: nav"]  # Used for topic title on topic 1-st page
         self.content_class: List[str] = ["div >> class :: content", "div >> class :: postbody"]  # Used for content_class / messages
 

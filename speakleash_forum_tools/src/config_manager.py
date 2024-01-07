@@ -53,7 +53,8 @@ class ConfigManager:
                  dataset_name: str = "", arg_parser: bool = False, check_robots: bool = True, force_crawl: bool = False,
                  processes: int = 2, time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", log_lvl = logging.INFO, print_to_console: bool = True,
                  threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []):
+                 topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [],
+                 content_class: List[str] = [], web_encoding: str = ''):
         """
         Initializes the ConfigManager with defaults or overridden settings based on provided arguments.
 
@@ -107,7 +108,8 @@ class ConfigManager:
         self.settings = self._initialize_settings(dataset_url = dataset_url, dataset_category = dataset_category, dataset_name = dataset_name, forum_engine = forum_engine, 
                             processes = processes, time_sleep = time_sleep, save_state = save_state, min_len_txt = min_len_txt, sitemaps = sitemaps, force_crawl = force_crawl,
                             threads_class = threads_class, threads_whitelist = threads_whitelist, threads_blacklist = threads_blacklist, topic_class = topic_class,
-                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_title_class = topic_title_class, content_class = content_class)
+                            topic_whitelist = topic_whitelist, topic_blacklist = topic_blacklist, pagination = pagination, topic_title_class = topic_title_class,
+                            content_class = content_class, web_encoding = web_encoding)
         
         if arg_parser == True:
             self._parse_arguments()
@@ -166,7 +168,8 @@ class ConfigManager:
     def _initialize_settings(self, dataset_url: str, dataset_category: str, dataset_name: str = "", forum_engine: str = 'invision', processes: int = 2,
                 time_sleep: float = 0.5, save_state: int = 100, min_len_txt: int = 20, sitemaps: str = "", force_crawl: bool = False,
                 threads_class: List[str] = [], threads_whitelist: List[str] = [], threads_blacklist: List[str] = [], topic_class: List[str] = [],
-                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [], content_class: List[str] = []) -> dict:
+                topic_whitelist: List[str] = [], topic_blacklist: List[str] = [], pagination: List[str] = [], topic_title_class: List[str] = [],
+                content_class: List[str] = [], web_encoding: str = '') -> dict:
         """
         Initialize dict with info for manifest and settings for crawler/scraper.
 
@@ -205,7 +208,8 @@ class ConfigManager:
             'TOPICS_BLACKLIST': topic_blacklist,
             'PAGINATION': pagination,
             'TOPIC_TITLE_CLASS': topic_title_class,
-            'CONTENT_CLASS': content_class
+            'CONTENT_CLASS': content_class,
+            'ENCODING': web_encoding
         }
 
     def _parse_arguments(self) -> None:
@@ -234,6 +238,7 @@ class ConfigManager:
         parser.add_argument("-pagination", "--PAGINATION", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['arrow next', 'right-box right', 'title :: Dalej'] (for phpBB engine) | (can pass multiple)", nargs='*')
         parser.add_argument("-topic_title_class", "--TOPIC_TITLE_CLASS", help="<attribute_value> (when attribute_name is 'class'), <attribute_name> :: <attribute_value> (if anchor_tag is ['li', 'a', 'div']) or <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['h2 >> :: ', 'h2 >> class :: topic-title'] (for phpBB engine) | (can pass multiple)", nargs='*')
         parser.add_argument("-content_class", "--CONTENT_CLASS", help="Topics HTML tags: <anchor_tag> >> <attribute_name> :: <attribute_value> -> e.g. ['div >> class :: content'] (for phpBB engine) | (can pass multiple)", nargs='*')
+        parser.add_argument("-encoding" , "--ENCODING", help="Desire website encoding", default="", type=str)
         args = parser.parse_args()
 
         parsed_url = urlparse(args.DATASET_URL)

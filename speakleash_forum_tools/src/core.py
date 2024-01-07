@@ -64,6 +64,7 @@ class ForumToolsCore:
         pagination: List[str] = [],
         topic_title_class: List[str] = [],
         content_class: List[str] = [],
+        web_encoding: str = '',
     ):
         """
         Initializes the ForumToolsCore class with the given configuration settings 
@@ -131,6 +132,7 @@ class ForumToolsCore:
             pagination,
             topic_title_class,
             content_class,
+            web_encoding,
         )
 
         # Prepare Crawler for selected forum engine

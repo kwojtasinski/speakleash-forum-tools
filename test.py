@@ -36,28 +36,14 @@ if __name__ == "__main__":
     #                 processes = 4,
     #                 log_lvl="DEBUG" ) 
 
-    # ForumToolsCore(dataset_url = "http://forum.wirtualnemedia.pl", 
-    #                 forum_engine = 'phpbb',
-    #                 processes=6,
-    #                 log_lvl="DEBUG" ) 
-    
-    # ForumToolsCore(dataset_url = "https://forum.peugeot205.pl", 
-    #                 forum_engine = 'phpbb',
-    #                 processes = 4,
-    #                 log_lvl="DEBUG" ) 
-    
-    # ForumToolsCore(dataset_url = "https://forum.parkiet.com", 
-    #                 forum_engine = 'phpbb',
-    #                 processes = 4,
-    #                 log_lvl="DEBUG" ) 
-
-    # ForumToolsCore(dataset_url = "https://forum.vwgolf.pl", 
-    #                 forum_engine = 'phpbb',
-    #                 processes = 4,
-    #                 log_lvl="DEBUG" ) 
-
-    ForumToolsCore(dataset_url = "https://forum.gs500.pl", 
+    ForumToolsCore(dataset_url = "https://www.excelforum.pl", 
                     forum_engine = 'phpbb',
                     content_class = ["span >> class :: postbody"],
                     processes = 4,
-                    log_lvl="DEBUG" ) 
+                    web_encoding = 'iso-8859-2',
+                    log_lvl="DEBUG") 
+
+    # ForumToolsCore(dataset_url = "https://www.forumsamochodowe.pl", 
+    #                 forum_engine = 'phpbb',
+    #                 processes = 4,
+    #                 log_lvl="DEBUG" ) 

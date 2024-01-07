@@ -27,7 +27,6 @@ import datetime
 import urllib3
 from urllib.parse import urljoin
 from typing import Tuple
-# from multiprocessing import set_start_method, Pool, freeze_support
 import multiprocessing
 
 import psutil
@@ -106,7 +105,7 @@ class Scraper:
                            headers_in: dict, content_class_in: list[str],
                            topic_title_class_in: list[str], text_separator_in: str,
                            pagination_in: list[str], time_sleep_in: float, 
-                           dataset_url_in: str, queue, log_lvl) -> None:
+                           dataset_url_in: str, queue, log_lvl, web_encoding: str) -> None:
         """
         Initialize the workers (parser and session) for multithreading performace.
 
@@ -153,6 +152,9 @@ class Scraper:
         global DATASET_URL
         DATASET_URL = dataset_url_in
 
+        global website_encoding
+        website_encoding = web_encoding
+
         if psutil.LINUX == True:
             loggur.info(f"INIT_WORKER // Created: requests.Session | Proc ID: {psutil.Process().pid} | CPU Core: {psutil.Process().cpu_num()}")
         else:
@@ -175,6 +177,7 @@ class Scraper:
         global text_separator
         global pagination
         global time_sleep
+        global website_encoding
         global DATASET_URL
 
         response = None
@@ -199,9 +202,12 @@ class Scraper:
                 loggur.warning("GET_TEXT // File too big")
                 return text
             
+            web_encoding = website_encoding if website_encoding else response.encoding
+            soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
+            
             # Get Topic-Title as "forum_topic" (only from 1-st page)
             try:
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+                
                 for content_class in forum_topic_title_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -221,7 +227,6 @@ class Scraper:
 
             # Beautiful Soup to extract data from HTML
             try:
-                soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
                 for content_class in forum_content_class:
                     html_tag, attr_name_value = content_class.split(" >> ")
                     attr_name, attr_value = attr_name_value.split(" :: ")
@@ -255,7 +260,7 @@ class Scraper:
                         loggur.debug(f"GET_TEXT // Found new page for topic: {page_num} -> {url} | Topic: {topic_url}")
 
                         response = session.get(url, timeout=60, headers = headers)
-                        soup = BeautifulSoup(response.content, "html.parser", from_encoding=response.encoding)
+                        soup = BeautifulSoup(response.content, "html.parser", from_encoding=web_encoding)
 
                         for content_class in forum_content_class:
                             html_tag, attr_name_value = content_class.split(" >> ")
@@ -289,8 +294,10 @@ class Scraper:
 
         try:
             text = text.encode(encoding='utf-8').decode(encoding='utf-8')
+            topic_title = topic_title.encode(encoding='utf-8').decode(encoding='utf-8')
         except Exception as e:
             text = text.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8')
+            topic_title = topic_title.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8')
             loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT | URL: {url} | -> {e}")
             print(f"* Encoding Failure * : {url}")
 
@@ -398,7 +405,8 @@ class Scraper:
                                   self.config.settings["TIME_SLEEP"],
                                   self.config.settings["DATASET_URL"],
                                   self.config.q_que,
-                                  self.logger_tool.level],
+                                  self.logger_tool.level,
+                                  self.config.settings["ENCODING"]],
                       processes = PROCESSES) as pool:
 
                 time_loop_start = time.time()
