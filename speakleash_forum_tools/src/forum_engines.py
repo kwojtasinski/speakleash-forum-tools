@@ -148,20 +148,28 @@ class ForumEnginesManager:
         try:
             if config_manager.settings['THREADS_CLASS'] and isinstance(config_manager.settings['THREADS_CLASS'], list):
                 self.threads_class.extend(config_manager.settings['THREADS_CLASS'])
+                self.threads_class = list(dict.fromkeys(self.threads_class))
             if config_manager.settings['THREADS_WHITELIST'] and isinstance(config_manager.settings['THREADS_WHITELIST'], list):
                 self.threads_whitelist.extend(config_manager.settings['THREADS_WHITELIST'])
+                self.threads_whitelist = list(dict.fromkeys(self.threads_whitelist))
             if config_manager.settings['THREADS_BLACKLIST'] and isinstance(config_manager.settings['THREADS_BLACKLIST'], list):
                 self.threads_blacklist.extend(config_manager.settings['THREADS_BLACKLIST'])
+                self.threads_blacklist = list(dict.fromkeys(self.threads_blacklist))
             if config_manager.settings['TOPICS_CLASS'] and isinstance(config_manager.settings['TOPICS_CLASS'], list):
                 self.topics_class.extend(config_manager.settings['TOPICS_CLASS'])
+                self.topics_class = list(dict.fromkeys(self.topics_class))
             if config_manager.settings['TOPICS_WHITELIST'] and isinstance(config_manager.settings['TOPICS_WHITELIST'], list):
                 self.topics_whitelist.extend(config_manager.settings['TOPICS_WHITELIST'])
+                self.topics_whitelist = list(dict.fromkeys(self.topics_whitelist))
             if config_manager.settings['TOPICS_BLACKLIST'] and isinstance(config_manager.settings['TOPICS_BLACKLIST'], list):
                 self.topics_blacklist.extend(config_manager.settings['TOPICS_BLACKLIST'])
+                self.topics_blacklist = list(dict.fromkeys(self.topics_blacklist))
             if config_manager.settings['PAGINATION'] and isinstance(config_manager.settings['PAGINATION'], list):
                 self.pagination.extend(config_manager.settings['PAGINATION'])
+                self.pagination = list(dict.fromkeys(self.pagination))
             if config_manager.settings['CONTENT_CLASS'] and isinstance(config_manager.settings['CONTENT_CLASS'], list):
                 self.content_class.extend(config_manager.settings['CONTENT_CLASS'])
+                self.content_class = list(dict.fromkeys(self.content_class))
             self.logger_tool.debug("Checked all additional lists of threads/topics/whitelist/blacklist to search...")
         except Exception as e:
             self.logger_tool.error(f"ForumEnginesManager: Error while extending lists of threads/topics/whitelist/blacklist to search! Error: {e}")
