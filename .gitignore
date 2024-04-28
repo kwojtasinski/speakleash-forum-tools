@@ -11,4 +11,3 @@ temp_scraper_data/
 robots.txt
 current_chunk_incomplete
 *.jsonl
-test.py
