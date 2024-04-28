@@ -12,3 +12,4 @@ robots.txt
 current_chunk_incomplete
 *.jsonl
 test.py
+/.venv
