@@ -1,8 +1,8 @@
-requests
+psutil
 urllib3
+git+https://github.com/Samox1/ultimate-sitemap-parser@develop#egg=ultimate-sitemap-parser
 beautifulsoup4
-ultimate-sitemap-parser
+pandas
+polars
 lm-dataformat
 tqdm
-pandas
-psutil

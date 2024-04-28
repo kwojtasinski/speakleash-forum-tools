@@ -1,1 +1,15 @@
 .env/
+.env_class_crawler/
+temp_scraper_data/
+*.pyc
+*.csv
+*.ipynb
+*.dat
+*.zst
+*.manifest
+*.log
+robots.txt
+current_chunk_incomplete
+*.jsonl
+test.py
+/.venv
