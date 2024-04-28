@@ -118,7 +118,7 @@ class ForumEnginesManager:
         self.logger_tool.info(f"Checking engine type: {self.engine_type}")
         self.logger_print.info(f"Checking engine type: {self.engine_type}")
 
-        try:
+        try:                                    # Forums: ['invision', 'phpbb', 'ipboard', 'xenforo', 'other']
             if self.engine_type == 'invision':
                 engine_type = InvisionCrawler()
             elif self.engine_type == 'phpbb':

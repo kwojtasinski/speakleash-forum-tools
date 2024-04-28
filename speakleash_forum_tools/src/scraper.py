@@ -299,7 +299,7 @@ class Scraper:
             text = text.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8')
             topic_title = topic_title.encode(encoding='utf-8', errors='ignore').decode(encoding='utf-8')
             loggur.error(f"GET_TEXT // ERROR while encoding/decoding TEXT | URL: {url} | -> {e}")
-            print(f"* Encoding Failure * : {url}")
+            print(f"\n* Encoding Failure * : {url}")
 
         return text, topic_title
 

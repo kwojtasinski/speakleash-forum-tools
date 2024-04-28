@@ -15,7 +15,7 @@ Dependencies:
     speakleash_forum_tools.src.manifest_manager: Provides the ManifestManager class for managing dataset manifests.
 """
 import logging
-from typing import List
+from typing import List, Literal
 
 from speakleash_forum_tools.src.config_manager import ConfigManager
 from speakleash_forum_tools.src.crawler_manager import CrawlerManager
@@ -43,7 +43,7 @@ class ForumToolsCore:
         self,
         dataset_url: str = "https://forum.szajbajk.pl",
         dataset_category: str = "Forum",
-        forum_engine: str = "invision",
+        forum_engine: Literal['invision', 'phpbb', 'ipboard', 'xenforo', 'other'] = "invision",
         dataset_name: str = "",
         arg_parser: bool = False,
         check_robots: bool = True,
@@ -53,7 +53,7 @@ class ForumToolsCore:
         save_state: int = 100,
         min_len_txt: int = 20,
         sitemaps: str = "",
-        log_lvl=logging.INFO,
+        log_lvl: int | Literal['INFO', 'DEBUG', 'ERROR'] = logging.INFO,
         print_to_console: bool = True,
         threads_class: List[str] = [],
         threads_whitelist: List[str] = [],
