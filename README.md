@@ -75,7 +75,8 @@ ForumToolsCore(dataset_url='https://max3d.pl/forums/', forum_engine='invision', 
 
 ```
 
-Please check the ForumToolsCore class documentation - all parameters should be described there. Worth noting are, for example:
+> [!TIP]
+> Please check the ForumToolsCore class documentation - all parameters should be described there. Worth noting are, for example:
 
 ```python
 ForumToolsCore(... , 
