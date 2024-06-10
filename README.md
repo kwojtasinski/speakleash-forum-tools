@@ -33,6 +33,25 @@ git clone https://github.com/speakleash/speakleash-forum-tools.git
 cd speakleash-forum-tools
 ```
 
+For testing create new virtual environment using:
+```bash
+python -m venv .venv
+```
+
+After that activate virtual environment:
+```bash
+# Linux
+. .venv/bin/activate
+
+# Windows
+. .\.venv\Scripts\Activate.ps1
+```
+
+And install requirements:
+```bash
+pip install -r requirements.txt 
+```
+
 ## Usage
 
 > [!WARNING]
