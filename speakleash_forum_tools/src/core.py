@@ -85,7 +85,7 @@ class ForumToolsCore:
         :param min_len_txt (int): Minimum length of text to consider valid for scraping.
         :param sitemaps (str): Custom sitemaps to be used for crawling.
         :param log_lvl: The logging level for logging operations.
-        :param print_to_console (bool): Flag to enable or disable console logging.
+        :param print_to_console (bool): Flag to enable or disable console logging. Shows only progress bar.
         :param threads_class (List[str]): HTML selectors used for identifying thread links in the forum.
             "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["a >> class :: forumtitle"] (for phpBB engine).
         :param topics_class (List[str]): HTML selectors used for identifying topic links within a thread.
@@ -106,6 +106,7 @@ class ForumToolsCore:
             e.g. ["h2 >>  :: ", "h2 >> class :: topic-title"] (for phpBB engine)
         :param content_class (List[str]): HTML selectors used for identifying the main content within a topic. 
             "<anchor_tag> >> <attribute_name> :: <attribute_value>", e.g. ["content_class"] (for phpBB engine)
+        :param web_encoding (str): Website encoding - because not every website is in UTF-8...
         """
         # Prepare settings and configuration
         config_manager = ConfigManager(
