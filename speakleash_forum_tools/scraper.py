@@ -531,6 +531,6 @@ class Scraper:
         """
         if not file_name:
             file_name = self.config.topics_visited_file
-        # urls_dataframe.to_csv(os.path.join(self.config.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
+        urls_dataframe.to_csv(os.path.join(self.config.dataset_folder, file_name), sep='\t', header=head, mode=mode, index=False, encoding='utf-8')
             
         self.logger_tool.info(f"Archive // Saved file -> DataFrame: {urls_dataframe.shape} -> {file_name}")

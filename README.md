@@ -51,6 +51,13 @@ docker run -it -v $(pwd)/data:/app/scraper_workspace speakleash_forum_tools:late
 
 Note that it mounts local `data` directory to the container's `scraper_workspace` directory, which is used to store the scraped data.
 
+When running above command you will have interactive access to bash with poetry project installed. You can run any CLI command:
+```shell
+poetry run speakleash_forum_tools run-scraper --dataset_url https://forum.szajbajk.pl --forum_engine invision --dataset_name test_szajbajk
+```
+
+![docker-demo.gif](docker-demo.gif)
+
 ## Usage
 
 > [!WARNING]
